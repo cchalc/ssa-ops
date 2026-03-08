@@ -2,6 +2,21 @@
 
 A starter for building apps with TanStack Start, Radix UI, and capsize typography.
 
+## Shell Environment
+
+**Fish Shell Only**: This machine runs fish shell. Always use fish shell syntax.
+
+- No `for x in ...; do ... done` - use `for x in ...; ...; end`
+- No `$()` for command substitution in assignment - use `set VAR (command)`
+- No `export VAR=value` - use `set -x VAR value`
+- No `&&` chaining in some contexts - use `; and` or separate commands
+
+## Environment Setup
+
+This project uses direnv. Environment is configured via:
+- `.envrc` - Sets `DATABRICKS_CONFIG_PROFILE=logfood` and loads `.env`
+- `.env` - Local secrets (gitignored, copy from `.env.example`)
+
 ## Stack
 
 - **TanStack Start** - Full-stack React framework (SPA/SSR, deploys everywhere)
