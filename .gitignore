@@ -1,3 +1,7 @@
+# TanStack generated
+src/routeTree.gen.ts
+.tanstack
+
 # Logs
 logs
 *.log
@@ -137,3 +141,6 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Generated typography
+public/typography.css
