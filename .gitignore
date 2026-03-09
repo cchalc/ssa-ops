@@ -20,6 +20,11 @@ id_ed25519*
 .databricks/
 infra/.databricks/
 
+# Python virtual environments
+.venv/
+__pycache__/
+*.pyc
+
 # TanStack generated
 src/routeTree.gen.ts
 .tanstack
