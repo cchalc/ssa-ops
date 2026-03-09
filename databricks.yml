@@ -5,7 +5,9 @@ bundle:
   name: ssa_ops
 
 include:
-  - resources/*.yml
+  - infra/resources/database.yml
+  # Uncomment after first build:
+  # - infra/resources/app.yml
 
 variables:
   # Database configuration

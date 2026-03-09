@@ -25,19 +25,17 @@ resources:
 
 **Deploy commands:**
 ```fish
-cd infra
 databricks bundle validate -t dev
 databricks bundle deploy -t dev
-databricks bundle run ssa_ops_app -t dev
+databricks bundle run ssa_ops_app -t dev  # After enabling app.yml
 ```
 
 **Infrastructure structure:**
 ```
-infra/
-├── databricks.yml           # Main bundle config
-└── resources/
-    ├── database.yml         # Lakebase instance + catalog
-    └── app.yml              # App deployment
+databricks.yml               # Main bundle config (project root)
+infra/resources/
+├── database.yml             # Lakebase instance + catalog
+└── app.yml                  # App deployment (enable after build)
 ```
 
 **Requirements:**

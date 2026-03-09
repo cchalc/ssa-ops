@@ -37,7 +37,6 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
 
       - name: Validate bundle
-        working-directory: infra
         run: |
           databricks bundle validate -t ${{ github.event.inputs.target || 'dev' }}
 
@@ -54,7 +53,6 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
 
       - name: Deploy Lakebase
-        working-directory: infra
         run: |
           databricks bundle deploy -t ${{ github.event.inputs.target || 'dev' }} --auto-approve
 
@@ -107,7 +105,6 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
 
       - name: Deploy App
-        working-directory: infra
         run: |
           databricks bundle run ssa_ops_app -t ${{ github.event.inputs.target || 'dev' }}
 

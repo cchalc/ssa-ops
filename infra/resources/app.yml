@@ -5,7 +5,7 @@ resources:
   apps:
     ssa_ops_app:
       name: ssa-ops-${bundle.target}
-      source_code_path: ../../dist  # Built TanStack Start app
+      source_code_path: ../../dist  # Built TanStack Start app (relative to infra/resources/)
       description: "Local-first data app with Databricks backend"
 
       # Grant app access to Lakebase
