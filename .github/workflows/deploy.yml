@@ -1,5 +1,6 @@
 # Deploy Databricks infrastructure and app
 # Triggered on push to main or manual dispatch
+# v1.1 - Added secret validation
 
 name: Deploy
 
