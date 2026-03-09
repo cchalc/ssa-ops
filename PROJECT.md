@@ -43,9 +43,9 @@ infra/resources/
 - Go SDK for custom extensions
 
 **CI/CD:**
-- GitHub Actions workflow at `.github/workflows/deploy.yml`
-- Auto-deploys on push to main
-- Manual dispatch for prod deployments
+- GitHub Actions at `.github/workflows/deploy.yml`
+- CI runs build, lint, test (no deploy - workspace IP ACL blocks GitHub IPs)
+- **Deploy locally**: `databricks bundle deploy -t dev`
 
 ## Python Environment
 

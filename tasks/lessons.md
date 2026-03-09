@@ -20,6 +20,9 @@ Patterns and rules to prevent repeated mistakes.
 
 - Profile managed via `DATABRICKS_CONFIG_PROFILE` env var
 - direnv loads profile automatically in project directory
+- **logfood workspace has IP ACL** - GitHub Actions IPs are blocked
+- Deploy locally: `databricks bundle deploy -t dev`
+- Secrets go in `.env` (gitignored), not `.envrc` (committed)
 
 ---
 
