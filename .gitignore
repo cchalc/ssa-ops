@@ -16,6 +16,10 @@ id_ed25519*
 *.secret
 *.secrets
 
+# Databricks bundle state
+.databricks/
+infra/.databricks/
+
 # TanStack generated
 src/routeTree.gen.ts
 .tanstack

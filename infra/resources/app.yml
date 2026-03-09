@@ -1,0 +1,18 @@
+# Databricks App resource
+# TanStack Start app with Lakebase backend
+
+resources:
+  apps:
+    ssa_ops_app:
+      name: ssa-ops-${bundle.target}
+      source_code_path: ../../dist  # Built TanStack Start app
+      description: "Local-first data app with Databricks backend"
+
+      # Grant app access to Lakebase
+      resources:
+        - name: "app-database"
+          description: "Lakebase database for app data sync"
+          database:
+            database_name: ${resources.database_catalogs.ssa_ops_catalog.database_name}
+            instance_name: ${resources.database_catalogs.ssa_ops_catalog.database_instance_name}
+            permission: "CAN_CONNECT_AND_CREATE"

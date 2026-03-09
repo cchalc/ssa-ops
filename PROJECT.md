@@ -1,5 +1,66 @@
 # Project Conventions
 
+## Infrastructure & Deployment
+
+**Databricks Asset Bundles (DABs)** with **Go SDK** for all infrastructure.
+
+Reference example: [bundle-examples/knowledge_base/app_with_database](https://github.com/databricks/bundle-examples/tree/main/knowledge_base/app_with_database)
+
+```yaml
+# databricks.yml structure
+bundle:
+  name: ssa-ops
+
+resources:
+  apps:
+    ssa_ops_app:
+      # App definition
+  databases:
+    ssa_ops_db:
+      # Lakebase instance
+  catalogs:
+    ssa_ops_catalog:
+      # Unity Catalog registration
+```
+
+**Deploy commands:**
+```fish
+cd infra
+databricks bundle validate -t dev
+databricks bundle deploy -t dev
+databricks bundle run ssa_ops_app -t dev
+```
+
+**Infrastructure structure:**
+```
+infra/
+├── databricks.yml           # Main bundle config
+└── resources/
+    ├── database.yml         # Lakebase instance + catalog
+    └── app.yml              # App deployment
+```
+
+**Requirements:**
+- Databricks CLI v0.267.0+
+- Go SDK for custom extensions
+
+**CI/CD:**
+- GitHub Actions workflow at `.github/workflows/deploy.yml`
+- Auto-deploys on push to main
+- Manual dispatch for prod deployments
+
+## Python Environment
+
+**uv** for Python dependency management:
+
+```fish
+uv sync                      # Install dependencies
+uv run pytest               # Run tests
+uv add <package>            # Add dependency
+```
+
+Virtual env location: `~/.virtualenvs/ssa-ops` (via UV_PROJECT_ENVIRONMENT)
+
 ## Version Control
 
 **Jujutsu only** - Do not use git commands directly.
@@ -63,6 +124,20 @@ pnpm check            # Full check
 | `CLAUDE.md` | AI assistant instructions |
 | `tasks/todo.md` | Task checklist |
 | `tasks/lessons.md` | Lessons learned |
+
+## Databricks Skills & Documentation
+
+**Context7 MCP** - Add `use context7` to prompts for live documentation.
+
+**Local skills** at `~/.claude/skills/`:
+- `databricks-asset-bundles` - DAB configuration
+- `databricks-lakebase-provisioned` - Lakebase setup
+- `databricks-app-python` - Python apps (Dash, Streamlit)
+- `databricks-unity-catalog` - System tables, volumes
+- `databricks-jobs` - Workflows
+- `databricks-dbsql` - SQL warehouse
+
+Invoke with `/skill-name` or reference in prompts.
 
 ## Commit Workflow
 
