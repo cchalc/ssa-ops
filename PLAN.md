@@ -20,8 +20,12 @@ Build a local-first data application that fetches data from Databricks, syncs vi
 
 | Setting | Value |
 |---------|-------|
-| Databricks Profile | `logfood` |
-| Workspace | `https://adb-2548836972759138.18.azuredatabricks.net/` |
+| Deploy Profile | `fevm-cjc` (Lakebase, Apps) |
+| Deploy Workspace | `https://fevm-cjc-aws-workspace.cloud.databricks.com/` |
+| Data Profile | `logfood` (SQL Warehouse queries) |
+| Data Workspace | `https://adb-2548836972759138.18.azuredatabricks.net/` |
+| Lakebase Instance | `cjc-ssa-ops-dev` |
+| Lakebase Database | `cjc_ssa_ops_dev` |
 | Environment | direnv (`.envrc` + `.env`) |
 
 ---
@@ -35,11 +39,14 @@ Build a local-first data application that fetches data from Databricks, syncs vi
 - [x] Set up direnv with `.envrc`
 - [x] Add security exclusions to `.gitignore`
 - [x] Document fish shell requirements
+- [x] **Phase 1: Lakebase Setup**
+  - [x] Create Lakebase instance `cjc-ssa-ops-dev` on `fevm-cjc` workspace
+  - [x] Create database `cjc_ssa_ops_dev`
+  - [x] Set up DAB for infrastructure deployment
 
 ### 🔄 In Progress
 
-- [ ] **Phase 1: Lakebase + Electric Setup**
-  - [ ] Create Lakebase database in Databricks workspace
+- [ ] **Phase 1b: Electric SQL Setup**
   - [ ] Configure Electric sync for Lakebase tables
   - [ ] Set up Electric client in the app
 

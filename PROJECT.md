@@ -23,11 +23,17 @@ resources:
       # Unity Catalog registration
 ```
 
+**Workspaces:**
+| Profile | Workspace | Purpose |
+|---------|-----------|---------|
+| `fevm-cjc` | fevm-cjc-aws-workspace.cloud.databricks.com | Infrastructure (Lakebase, Apps) |
+| `logfood` | adb-2548836972759138 | Data queries (SQL Warehouse) |
+
 **Deploy commands:**
 ```fish
 databricks bundle validate -t dev
 databricks bundle deploy -t dev
-databricks bundle run ssa_ops_app -t dev  # After enabling app.yml
+databricks bundle run cjc_ssa_ops_app -t dev  # After enabling app.yml
 ```
 
 **Infrastructure structure:**
@@ -90,7 +96,7 @@ jj rebase -d <destination>
 - `.env` - Local secrets (gitignored)
 - `.env.example` - Template for required vars
 
-Databricks profile: `logfood`
+Databricks profiles: `fevm-cjc` (deploy), `logfood` (data)
 
 ## Package Manager
 

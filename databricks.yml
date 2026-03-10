@@ -29,17 +29,17 @@ targets:
     default: true
     mode: development
     workspace:
-      profile: logfood
+      profile: fevm-cjc
     variables:
       database_capacity: "CU_1"
-      database_name: "ssa_ops_dev"
-      catalog_name: "ssa_ops_dev_catalog"
+      database_name: "cjc_ssa_ops_dev"
+      catalog_name: "cjc_ssa_ops_dev_catalog"
 
   prod:
     mode: production
     workspace:
-      profile: logfood
+      profile: fevm-cjc
     variables:
       database_capacity: "CU_2"
-      database_name: "ssa_ops_prod"
-      catalog_name: "ssa_ops_catalog"
+      database_name: "cjc_ssa_ops_prod"
+      catalog_name: "cjc_ssa_ops_catalog"

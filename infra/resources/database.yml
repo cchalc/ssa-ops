@@ -1,17 +1,17 @@
 # Lakebase (OLTP Postgres) infrastructure
-# Provisions database instance and Unity Catalog integration
+# Provisions database instance
 
 resources:
   # Lakebase instance
   database_instances:
-    ssa_ops_instance:
-      name: ssa-ops-${bundle.target}
+    cjc_ssa_ops_instance:
+      name: cjc-ssa-ops-${bundle.target}
       capacity: ${var.database_capacity}
 
-  # Unity Catalog registration for Lakebase
-  database_catalogs:
-    ssa_ops_catalog:
-      database_instance_name: ${resources.database_instances.ssa_ops_instance.name}
-      database_name: ${var.database_name}
-      name: ${var.catalog_name}
-      create_database_if_not_exists: true
+  # NOTE: Unity Catalog registration disabled - requires CREATE CATALOG on metastore
+  # database_catalogs:
+  #   cjc_ssa_ops_catalog:
+  #     database_instance_name: ${resources.database_instances.cjc_ssa_ops_instance.name}
+  #     database_name: ${var.database_name}
+  #     name: ${var.catalog_name}
+  #     create_database_if_not_exists: true

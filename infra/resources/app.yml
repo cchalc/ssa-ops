@@ -3,8 +3,8 @@
 
 resources:
   apps:
-    ssa_ops_app:
-      name: ssa-ops-${bundle.target}
+    cjc_ssa_ops_app:
+      name: cjc-ssa-ops-${bundle.target}
       source_code_path: ../../dist  # Built TanStack Start app (relative to infra/resources/)
       description: "Local-first data app with Databricks backend"
 
@@ -13,6 +13,6 @@ resources:
         - name: "app-database"
           description: "Lakebase database for app data sync"
           database:
-            database_name: ${resources.database_catalogs.ssa_ops_catalog.database_name}
-            instance_name: ${resources.database_catalogs.ssa_ops_catalog.database_instance_name}
+            database_name: ${var.database_name}
+            instance_name: ${resources.database_instances.cjc_ssa_ops_instance.name}
             permission: "CAN_CONNECT_AND_CREATE"
