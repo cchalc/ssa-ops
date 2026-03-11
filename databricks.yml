@@ -1,28 +1,57 @@
 # Databricks Asset Bundle for ssa-ops
-# Infrastructure as code for Lakebase + App deployment
+# Infrastructure as code for Lakebase Autoscaling + App deployment
 
 bundle:
   name: ssa_ops
 
+sync:
+  include:
+    - src/sql/**
+
 include:
-  - infra/resources/database.yml
+  - infra/resources/lakebase.yml
+  - infra/resources/jobs.yml
+  # NOTE: synced_tables.yml requires CREATE CATALOG permission on metastore
+  # - infra/resources/synced_tables.yml
   # Uncomment after first build:
   # - infra/resources/app.yml
 
 variables:
-  # Database configuration
-  database_capacity:
-    description: "Lakebase compute capacity"
-    default: "CU_1"
+  # Unity Catalog namespace
+  catalog:
+    description: "Unity Catalog catalog name"
+    default: "cjc_aws_workspace_catalog"
+
+  schema:
+    description: "Unity Catalog schema name"
+    default: "ssa_ops"
+
+  # SQL Warehouse for running queries
+  warehouse_id:
+    description: "SQL Warehouse ID"
+
+  # Lakebase Autoscaling configuration
+  lakebase_project:
+    description: "Lakebase Autoscaling project name"
+    default: "ssa-ops"
 
   database_name:
-    description: "Logical database name"
-    default: "ssa_ops_db"
+    description: "Logical database name in Lakebase"
+    default: "ssa_ops"
 
-  # Catalog for Unity Catalog integration
-  catalog_name:
-    description: "Unity Catalog name for Lakebase"
-    default: "ssa_ops_catalog"
+  # Compute scaling
+  autoscaling_min_cu:
+    description: "Minimum compute units"
+    default: "0.5"
+
+  autoscaling_max_cu:
+    description: "Maximum compute units"
+    default: "2"
+
+  # History retention for point-in-time recovery (seconds)
+  history_retention:
+    description: "History retention duration in seconds (14 days = 1209600)"
+    default: "1209600"
 
 targets:
   dev:
@@ -31,15 +60,37 @@ targets:
     workspace:
       profile: fevm-cjc
     variables:
-      database_capacity: "CU_1"
-      database_name: "cjc_ssa_ops_dev"
-      catalog_name: "cjc_ssa_ops_dev_catalog"
+      catalog: "cjc_aws_workspace_catalog"
+      schema: "ssa_ops_dev"
+      warehouse_id: "751fe324525584e5"  # Serverless Starter Warehouse
+      lakebase_project: "ssa-ops-dev"
+      database_name: "ssa_ops_dev"
+      autoscaling_min_cu: "0.5"
+      autoscaling_max_cu: "2"
+
+  staging:
+    mode: development
+    workspace:
+      profile: fevm-cjc
+    variables:
+      catalog: "cjc_aws_workspace_catalog"
+      schema: "ssa_ops_staging"
+      warehouse_id: "751fe324525584e5"
+      lakebase_project: "ssa-ops-staging"
+      database_name: "ssa_ops_staging"
+      autoscaling_min_cu: "0.5"
+      autoscaling_max_cu: "4"
 
   prod:
     mode: production
     workspace:
       profile: fevm-cjc
     variables:
-      database_capacity: "CU_2"
-      database_name: "cjc_ssa_ops_prod"
-      catalog_name: "cjc_ssa_ops_catalog"
+      catalog: "cjc_aws_workspace_catalog"
+      schema: "ssa_ops"
+      warehouse_id: "751fe324525584e5"
+      lakebase_project: "ssa-ops"
+      database_name: "ssa_ops"
+      autoscaling_min_cu: "0.5"
+      autoscaling_max_cu: "8"
+      history_retention: "2592000"  # 30 days for prod

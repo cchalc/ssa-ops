@@ -1,0 +1,37 @@
+# Lakebase Autoscaling (OLTP Postgres) infrastructure
+# Uses copy-on-write branching for environment isolation
+
+resources:
+  # Lakebase Autoscaling Project
+  # Project is the top-level container for branches, computes, and databases
+  postgres_projects:
+    lakebase:
+      project_id: ${var.lakebase_project}
+      display_name: ${var.lakebase_project}
+      pg_version: 17
+      history_retention_duration: "1209600s"
+      default_endpoint_settings:
+        autoscaling_limit_min_cu: 0.5
+        autoscaling_limit_max_cu: 2
+        # Production branch never suspends for availability
+        no_suspension: true
+
+  # Read-only replica for production branch
+  # Scales to zero after 5 minutes of inactivity for cost optimization
+  postgres_endpoints:
+    production_read_replica:
+      parent: projects/${resources.postgres_projects.lakebase.project_id}/branches/production
+      endpoint_id: read-replica
+      endpoint_type: ENDPOINT_TYPE_READ_ONLY
+      autoscaling_limit_min_cu: 0.5
+      autoscaling_limit_max_cu: 2
+      suspend_timeout_duration: "300s"
+
+# NOTE: Database catalogs (Unity Catalog registration) disabled
+# Requires CREATE CATALOG permission on metastore
+# database_catalogs:
+#   lakebase_catalog:
+#     database_instance_name: ${resources.postgres_projects.lakebase.project_id}
+#     database_name: ${var.database_name}
+#     name: ${var.catalog}
+#     create_database_if_not_exists: true

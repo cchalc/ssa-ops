@@ -1,0 +1,72 @@
+# Create Lakebase Branch
+# Triggered when a new Git branch is created
+# Creates an isolated database branch forked from production
+
+name: Create Lakebase Branch
+
+on:
+  create:
+
+env:
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+  LAKEBASE_PROJECT_NAME: ${{ vars.LAKEBASE_PROJECT_NAME || 'ssa-ops-dev' }}
+
+jobs:
+  create-lakebase-branch:
+    name: Create Lakebase Branch
+    runs-on: ubuntu-latest
+    # Only run for branch creation (not tags)
+    if: github.ref_type == 'branch' && github.ref_name != 'main'
+    steps:
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks --version
+
+      - name: Sanitize branch name
+        id: sanitize
+        run: |
+          # Lakebase branch names: 1-63 chars, lowercase, alphanumeric + hyphens
+          BRANCH_NAME="${{ github.ref_name }}"
+          SANITIZED=$(echo "$BRANCH_NAME" | \
+            tr '[:upper:]' '[:lower:]' | \
+            sed 's/[^a-z0-9-]/-/g' | \
+            sed 's/^-*//' | \
+            sed 's/-*$//' | \
+            cut -c1-63)
+          echo "sanitized=$SANITIZED" >> $GITHUB_OUTPUT
+          echo "Sanitized branch name: $SANITIZED"
+
+      - name: Create Lakebase branch
+        run: |
+          echo "Creating Lakebase branch: ${{ steps.sanitize.outputs.sanitized }}"
+          echo "Project: $LAKEBASE_PROJECT_NAME"
+
+          # Create branch forked from production with 7-day TTL
+          databricks postgres create-branch "projects/$LAKEBASE_PROJECT_NAME" "${{ steps.sanitize.outputs.sanitized }}" \
+            --parent-branch-id production \
+            --ttl-duration "604800s" \
+            --no-wait || echo "Branch may already exist"
+
+      - name: Create read-write endpoint
+        run: |
+          echo "Creating read-write endpoint for branch: ${{ steps.sanitize.outputs.sanitized }}"
+
+          # Create endpoint with autoscaling (scales to zero when idle)
+          databricks postgres create-endpoint "projects/$LAKEBASE_PROJECT_NAME/branches/${{ steps.sanitize.outputs.sanitized }}" \
+            --endpoint-id "rw" \
+            --endpoint-type ENDPOINT_TYPE_READ_WRITE \
+            --autoscaling-limit-min-cu 0.5 \
+            --autoscaling-limit-max-cu 2 \
+            --suspend-timeout-duration "300s" \
+            --no-wait || echo "Endpoint may already exist"
+
+      - name: Output connection info
+        run: |
+          echo "=== Lakebase Branch Created ==="
+          echo "Branch: ${{ steps.sanitize.outputs.sanitized }}"
+          echo "TTL: 7 days (auto-cleanup if branch not deleted)"
+          echo ""
+          echo "To connect:"
+          echo "  databricks psql $LAKEBASE_PROJECT_NAME --branch ${{ steps.sanitize.outputs.sanitized }}"

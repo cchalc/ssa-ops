@@ -1,0 +1,20 @@
+# Jobs for data setup
+
+resources:
+  jobs:
+    cjc_setup_data:
+      name: "[${bundle.target}] cjc-ssa-ops-setup-data"
+      description: "Setup Unity Catalog schema and test table"
+
+      tasks:
+        - task_key: "setup_schema"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/src/sql/01_setup_schema.sql
+
+      parameters:
+        - name: "catalog"
+          default: ${var.catalog}
+        - name: "schema"
+          default: ${var.schema}

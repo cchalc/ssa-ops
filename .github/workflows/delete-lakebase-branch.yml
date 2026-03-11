@@ -1,0 +1,50 @@
+# Delete Lakebase Branch
+# Triggered when a Git branch is deleted
+# Cleans up the corresponding database branch
+
+name: Delete Lakebase Branch
+
+on:
+  delete:
+
+env:
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+  LAKEBASE_PROJECT_NAME: ${{ vars.LAKEBASE_PROJECT_NAME || 'ssa-ops-dev' }}
+
+jobs:
+  delete-lakebase-branch:
+    name: Delete Lakebase Branch
+    runs-on: ubuntu-latest
+    # Only run for branch deletion (not tags)
+    if: github.event.ref_type == 'branch' && github.event.ref != 'refs/heads/main'
+    steps:
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks --version
+
+      - name: Sanitize branch name
+        id: sanitize
+        run: |
+          # Match the same sanitization as create workflow
+          BRANCH_NAME="${{ github.event.ref }}"
+          SANITIZED=$(echo "$BRANCH_NAME" | \
+            tr '[:upper:]' '[:lower:]' | \
+            sed 's/[^a-z0-9-]/-/g' | \
+            sed 's/^-*//' | \
+            sed 's/-*$//' | \
+            cut -c1-63)
+          echo "sanitized=$SANITIZED" >> $GITHUB_OUTPUT
+          echo "Sanitized branch name: $SANITIZED"
+
+      - name: Delete Lakebase branch
+        run: |
+          echo "Deleting Lakebase branch: ${{ steps.sanitize.outputs.sanitized }}"
+          echo "Project: $LAKEBASE_PROJECT_NAME"
+
+          # Delete branch (also deletes all endpoints)
+          databricks postgres delete-branch "projects/$LAKEBASE_PROJECT_NAME/branches/${{ steps.sanitize.outputs.sanitized }}" \
+            --no-wait || echo "Branch may not exist or already deleted"
+
+          echo "=== Lakebase Branch Deleted ==="

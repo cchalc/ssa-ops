@@ -9,6 +9,8 @@ Patterns and rules to prevent repeated mistakes.
 - **Always use fish shell syntax** - no bash/zsh constructs
 - Use `set VAR (command)` not `VAR=$(command)`
 - Use `set -x VAR value` not `export VAR=value`
+- **Never use Homebrew** - no `brew` commands on this machine
+- Bash tool still executes commands, but use fish-compatible syntax
 
 ## Git/Jujutsu
 

@@ -1,0 +1,20 @@
+# Fallback option: Run Electric via Docker
+# Preferred: Run from source (see docs/electric-setup.md)
+#
+# Usage: docker compose up -d
+
+name: 'ssa-ops-electric'
+
+services:
+  electric:
+    image: electricsql/electric:latest
+    environment:
+      DATABASE_URL: ${LAKEBASE_DATABASE_URL}
+      ELECTRIC_INSECURE: "true"  # Dev only - no secret required
+    ports:
+      - '3000:3000'
+    volumes:
+      - electric_data:/var/lib/electric
+
+volumes:
+  electric_data:

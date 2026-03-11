@@ -1,0 +1,14 @@
+# Synced tables: Delta -> Lakebase (Reverse ETL)
+
+resources:
+  synced_database_tables:
+    cjc_test_items_synced:
+      name: "test_items"
+      database_instance_name: ${var.database_instance}
+      logical_database_name: ${var.database_name}
+      spec:
+        source_table_full_name: "${var.catalog}.${var.schema}.test_items"
+        primary_key_columns:
+          - "id"
+        scheduling_policy: "TRIGGERED"  # Manual/triggered sync (not continuous)
+        create_database_objects_if_missing: true
