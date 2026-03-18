@@ -12,8 +12,11 @@ export function Header() {
           </Text>
         </Link>
         <Flex gap="4" align="center">
+          <Link to="/lakebase" style={{ textDecoration: 'none' }}>
+            <Text size="2" color="gray">Lakebase</Text>
+          </Link>
           <Link to="/data" style={{ textDecoration: 'none' }}>
-            <Text size="2" color="gray">Data</Text>
+            <Text size="2" color="gray">Data (Electric)</Text>
           </Link>
           <ThemePicker />
         </Flex>

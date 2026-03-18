@@ -195,10 +195,69 @@ databricks postgres delete-branch "projects/ssa-ops-dev/branches/my-feature"
 - **Logical replication not supported**: Lakebase Autoscaling doesn't currently support `CREATE PUBLICATION` for tools like Electric SQL. Real-time sync requires polling or alternative approaches.
 - **OAuth token expiry**: Tokens expire after 1 hour. Applications need token refresh logic.
 
+## SSA Activity Dashboard
+
+This repo includes SQL views and infrastructure for tracking SSA charter activities.
+
+### Dashboard Architecture
+
+```
+┌─────────────────────────┐     ┌─────────────────────────┐
+│   AI/BI Dashboard       │     │   ssa-ops (TanStack)    │
+│   (Executive View)      │     │   (Operational View)    │
+└───────────┬─────────────┘     └───────────┬─────────────┘
+            │                               │
+            └───────────┬───────────────────┘
+                        ▼
+            ┌───────────────────────┐
+            │  SQL Views (cjc_*)    │
+            │  home_christopher_    │
+            │  chalcraft.cjc_views  │
+            └───────────┬───────────┘
+                        ▼
+            ┌───────────────────────┐
+            │  Source Tables        │
+            │  stitch.salesforce.*  │
+            │  main.gtm_gold.*      │
+            └───────────────────────┘
+```
+
+### SQL Views
+
+| View | Purpose |
+|------|---------|
+| `cjc_team_summary` | Executive KPIs - open ASQs, overdue, capacity |
+| `cjc_asq_completed_metrics` | Turnaround time, on-time delivery |
+| `cjc_asq_sla_metrics` | SLA tracking per milestone |
+| `cjc_asq_effort_accuracy` | Estimate vs actual comparison |
+| `cjc_asq_reengagement` | Repeat account tracking |
+| `cjc_asq_uco_linkage` | UCO linkage per ASQ |
+| `cjc_asq_product_adoption` | Product adoption by account |
+
+Deploy views:
+```bash
+# Run on central-logfood-prodtools-azure-westus
+databricks sql execute -f sql/deploy_views.sql
+```
+
+### Dashboard Sections
+
+- **Executive Summary** - Total open, overdue, capacity status
+- **ASQ Lifecycle** - Status distribution, throughput trends
+- **SSA Performance** - Per-person metrics, effort accuracy
+- **Customer Engagement** - Account re-engagement, top accounts
+- **UCO Linkage** - Business impact tracking
+- **Product Adoption** - AI/ML, Lakeflow, Unity Catalog influence
+
+See [docs/metrics-tree.md](docs/metrics-tree.md) for full view-to-metric mapping.
+
 ## Documentation
 
 - [PROJECT.md](PROJECT.md) - Development conventions
 - [CLAUDE.md](CLAUDE.md) - AI assistant instructions
+- [docs/metrics-tree.md](docs/metrics-tree.md) - View to metric mapping
+- [docs/data-dictionary.md](docs/data-dictionary.md) - Field definitions
+- [docs/REFERENCES.md](docs/REFERENCES.md) - External charter docs
 - [docs/electric-setup.md](docs/electric-setup.md) - Electric SQL setup (blocked by replication limitation)
 - [docs/adr/](docs/adr/) - Architecture Decision Records
 
