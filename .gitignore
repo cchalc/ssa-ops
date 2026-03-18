@@ -172,5 +172,8 @@ vite.config.ts.timestamp-*
 # Generated typography
 public/typography.css
 
-# Override global gitignore for SQL migrations
+# Override global gitignore for SQL files
 !scripts/*.sql
+!sql/**/*.sql
+!sql/*.sql
+!src/sql/*.sql
