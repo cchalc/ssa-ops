@@ -16,6 +16,12 @@ dev = [
     "ruff>=0.4.0",
 ]
 
+# Databricks runtime dependencies (not installed locally)
+# These are available on Databricks clusters, used by src/jobs/*.py
+databricks = [
+    "pyspark>=3.5.0",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
