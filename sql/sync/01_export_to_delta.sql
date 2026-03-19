@@ -5,9 +5,6 @@
 -- This job reads from home_christopher_chalcraft.cjc_views
 -- and writes to Delta tables that can be accessed by Lakebase
 
--- Configuration
-SET spark.databricks.delta.schema.autoMerge.enabled = true;
-
 -- Create target schema if not exists
 CREATE SCHEMA IF NOT EXISTS cjc_aws_workspace_catalog.ssa_ops_dev;
 
