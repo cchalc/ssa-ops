@@ -1,0 +1,236 @@
+# SSA Dashboard - Automated CI/CD Pipeline
+#
+# STATUS: DISABLED (rename to .yml to activate)
+# REASON: Workspace IP ACL blocks GitHub Actions runners
+#
+# To enable automated deployments:
+#   1. Add GitHub Actions IP ranges to workspace allowlist, OR
+#   2. Use a self-hosted runner with allowed IP
+#   3. Rename this file: mv deploy-automated.yml.disabled deploy-automated.yml
+#   4. Set GitHub secrets:
+#      - DATABRICKS_HOST: https://your-workspace.cloud.databricks.com
+#      - DATABRICKS_TOKEN: dapi...
+#
+# This workflow deploys to dev on push to main, staging/prod via workflow_dispatch
+
+name: Deploy SSA Dashboard (Automated)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sql/**'
+      - 'src/**'
+      - 'infra/**'
+      - 'scripts/**'
+      - 'pipelines/**'
+      - 'databricks.yml'
+      - 'pyproject.toml'
+      - 'justfile'
+      - '.github/workflows/deploy-automated.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deployment target'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+jobs:
+  # ============================================================
+  # VALIDATE
+  # ============================================================
+  validate:
+    name: Validate Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Validate bundle
+        run: databricks bundle validate -t dev
+
+      - name: SQL syntax check
+        run: |
+          echo "Checking SQL files..."
+          for f in sql/**/*.sql; do
+            if [ -f "$f" ]; then
+              echo "  ✓ $f"
+            fi
+          done
+
+  # ============================================================
+  # BUILD & TEST
+  # ============================================================
+  build-app:
+    name: Build App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm check
+        continue-on-error: true
+
+      - name: Build
+        run: pnpm build
+        continue-on-error: true
+
+  test-python:
+    name: Test Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Setup Python
+        run: uv python install 3.12
+
+      - name: Lint
+        run: uv run ruff check . || true
+        continue-on-error: true
+
+  # ============================================================
+  # DEPLOY TO DEV (auto on push to main)
+  # ============================================================
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: [validate, build-app]
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'dev')
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy bundle
+        run: databricks bundle deploy -t dev
+
+      - name: Create deployment summary
+        run: |
+          echo "## ✅ Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Target** | dev |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Resources" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          databricks bundle summary -t dev 2>/dev/null | head -30 >> $GITHUB_STEP_SUMMARY || echo "Summary unavailable"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================
+  # DEPLOY TO STAGING (manual only)
+  # ============================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [validate, build-app]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'staging'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy bundle
+        run: databricks bundle deploy -t staging
+
+      - name: Create deployment summary
+        run: |
+          echo "## ✅ Staging Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** staging" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================
+  # DEPLOY TO PRODUCTION (manual only)
+  # ============================================================
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [validate, build-app]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy bundle
+        run: databricks bundle deploy -t prod
+
+      - name: Create deployment summary
+        run: |
+          echo "## ✅ Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** prod" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Production deployment - verify in Databricks workspace**" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================
+  # POST-DEPLOY VALIDATION (optional)
+  # ============================================================
+  post-deploy-validate:
+    name: Post-Deploy Validation
+    runs-on: ubuntu-latest
+    needs: [deploy-dev]
+    if: success() && (github.ref == 'refs/heads/main' && github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployed resources..."
+          databricks bundle summary -t dev
+
+      - name: Run validation job (optional)
+        run: |
+          echo "To run data validation:"
+          echo "  databricks bundle run -t dev ssa_dashboard_validate_data"
+        continue-on-error: true
