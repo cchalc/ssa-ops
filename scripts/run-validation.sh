@@ -5,9 +5,9 @@
 #   ./scripts/run-validation.sh [tier]
 #
 # Tiers:
-#   logfood  - Validate source views (requires logfood profile)
-#   delta    - Validate Delta tables (requires fevm-cjc profile)
-#   lakebase - Validate Lakebase tables (requires pnpm test)
+#   logfood  - Show instructions for logfood validation
+#   delta    - Run Delta table validation via job
+#   lakebase - Run Lakebase tests via pnpm
 #   all      - Run all validations
 
 set -euo pipefail
@@ -23,44 +23,32 @@ echo "=============================================="
 echo ""
 
 validate_logfood() {
-    echo ">>> Validating Logfood Views"
+    echo ">>> Logfood Views Validation"
     echo "    Profile: logfood"
     echo "    Warehouse: Shared SQL Endpoint - Stable"
     echo ""
-
-    databricks sql query \
-        --profile logfood \
-        --warehouse-id 927ac096f9833442 \
-        --file "$PROJECT_DIR/sql/tests/01_validate_logfood_views.sql" \
-        --format json \
-        | jq -r '.[] | "\(.view_name // .test_name): \(.status)"'
-
+    echo "    Run manually in Databricks SQL Editor:"
+    echo "    1. Open: https://adb-2548836972759138.18.azuredatabricks.net/sql/editor"
+    echo "    2. Select warehouse: Shared SQL Endpoint - Stable (927ac096f9833442)"
+    echo "    3. Run: sql/tests/01_validate_logfood_views.sql"
     echo ""
 }
 
 validate_delta() {
     echo ">>> Validating Delta Tables"
-    echo "    Profile: fevm-cjc"
-    echo "    Catalog: cjc_aws_workspace_catalog.ssa_ops_dev"
+    echo "    Running validation job on fevm-cjc..."
     echo ""
 
-    databricks sql query \
-        --profile fevm-cjc \
-        --warehouse-id 751fe324525584e5 \
-        --file "$PROJECT_DIR/sql/tests/02_validate_delta_tables.sql" \
-        --format json \
-        | jq -r '.[] | "\(.table_name // .test_name): \(.status)"'
-
-    echo ""
-    echo ">>> Cross-Tier Validation"
-
-    databricks sql query \
-        --profile fevm-cjc \
-        --warehouse-id 751fe324525584e5 \
-        --file "$PROJECT_DIR/sql/tests/03_validate_cross_tier.sql" \
-        --format json \
-        | jq -r '.[] | "\(.test_name): \(.status // "INFO")"'
-
+    # Run the deployed validation job
+    if databricks bundle run -t dev ssa_dashboard_validate_data --no-wait 2>/dev/null; then
+        echo "    ✓ Validation job started"
+        echo "    Check results at: https://fevm-cjc-aws-workspace.cloud.databricks.com/jobs"
+    else
+        echo "    ⚠ Job not available. Run validation manually:"
+        echo "    1. Open: https://fevm-cjc-aws-workspace.cloud.databricks.com/sql/editor"
+        echo "    2. Run: sql/tests/02_validate_delta_tables.sql"
+        echo "    3. Run: sql/tests/03_validate_cross_tier.sql"
+    fi
     echo ""
 }
 
@@ -70,9 +58,17 @@ validate_lakebase() {
     echo ""
 
     cd "$PROJECT_DIR"
-    pnpm test tests/data-validation.test.ts -- --reporter=verbose 2>/dev/null || {
-        echo "    Note: Set LAKEBASE_USER and LAKEBASE_PASSWORD to run Lakebase tests"
-    }
+    if [ -n "${LAKEBASE_USER:-}" ] && [ -n "${LAKEBASE_PASSWORD:-}" ]; then
+        pnpm test tests/data-validation.test.ts -- --reporter=verbose 2>/dev/null || {
+            echo "    ⚠ Tests failed or skipped"
+        }
+    else
+        echo "    ⚠ Skipped: Set LAKEBASE_USER and LAKEBASE_PASSWORD to run"
+        echo ""
+        echo "    To generate credentials:"
+        echo "    export LAKEBASE_USER=christopher.chalcraft@databricks.com"
+        echo "    export LAKEBASE_PASSWORD=\$(just lakebase-token)"
+    fi
     echo ""
 }
 

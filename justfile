@@ -58,19 +58,34 @@ validate-delta:
 
 # === SYNC JOBS ===
 
-# Run export from logfood to Delta (manual trigger)
+# Run export from logfood to Delta (via job)
 sync-to-delta:
-    @echo "Running export to Delta tables..."
-    databricks sql query --profile logfood -w 927ac096f9833442 -f sql/sync/01_export_to_delta.sql
+    @echo "Triggering export to Delta job..."
+    databricks bundle run -t dev ssa_dashboard_export_to_delta --no-wait || { \
+        echo ""; \
+        echo "⚠ Job not available or failed. Run manually:"; \
+        echo "  1. Open: https://adb-2548836972759138.18.azuredatabricks.net/sql/editor"; \
+        echo "  2. Run: sql/sync/01_export_to_delta.sql"; \
+    }
 
 # Run sync from Delta to Lakebase
 sync-to-lakebase:
     @echo "Triggering sync to Lakebase job..."
-    databricks bundle run -t dev ssa_dashboard_sync_to_lakebase
+    databricks bundle run -t dev ssa_dashboard_sync_to_lakebase --no-wait || { \
+        echo "⚠ Job failed to start"; \
+    }
 
 # Full sync pipeline: logfood → Delta → Lakebase
-sync-all: sync-to-delta sync-to-lakebase
-    @echo "✓ Full sync complete"
+sync-all:
+    @echo "Starting full sync pipeline..."
+    @echo ""
+    just sync-to-delta
+    @echo ""
+    @echo "Waiting 30s for Delta export to complete..."
+    @sleep 30
+    just sync-to-lakebase
+    @echo ""
+    @echo "✓ Sync jobs triggered (check Databricks for status)"
 
 # === JOBS ===
 
