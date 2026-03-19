@@ -7,10 +7,13 @@ bundle:
 sync:
   include:
     - src/sql/**
+    - sql/**
+    - pipelines/**
 
 include:
   - infra/resources/lakebase.yml
   - infra/resources/jobs.yml
+  - infra/resources/pipelines.yml
   # NOTE: synced_tables.yml requires CREATE CATALOG permission on metastore
   # - infra/resources/synced_tables.yml
   # Uncomment after first build:
@@ -26,9 +29,14 @@ variables:
     description: "Unity Catalog schema name"
     default: "ssa_ops"
 
-  # SQL Warehouse for running queries
+  # SQL Warehouse for running queries (local workspace)
   warehouse_id:
-    description: "SQL Warehouse ID"
+    description: "SQL Warehouse ID for local workspace"
+
+  # SQL Warehouse for cross-catalog queries (logfood workspace)
+  logfood_warehouse_id:
+    description: "SQL Warehouse ID with access to stitch.salesforce"
+    default: "927ac096f9833442"  # Shared SQL Endpoint - Stable on logfood
 
   # Lakebase Autoscaling configuration
   lakebase_project:
@@ -67,6 +75,17 @@ targets:
       database_name: "ssa_ops_dev"
       autoscaling_min_cu: "0.5"
       autoscaling_max_cu: "2"
+
+  # Logfood workspace for SQL views (has access to stitch.salesforce)
+  logfood:
+    mode: development
+    workspace:
+      profile: logfood
+    variables:
+      catalog: "home_christopher_chalcraft"
+      schema: "cjc_views"
+      warehouse_id: "927ac096f9833442"  # Shared SQL Endpoint - Stable
+      logfood_warehouse_id: "927ac096f9833442"
 
   staging:
     mode: development

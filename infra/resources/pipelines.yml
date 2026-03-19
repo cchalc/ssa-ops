@@ -1,0 +1,35 @@
+# SSA Dashboard Views - SQL-based deployment
+# Deploys SQL views to home_christopher_chalcraft.cjc_views
+# Must run on logfood workspace (has access to stitch.salesforce)
+
+resources:
+  jobs:
+    ssa_dashboard_deploy_views:
+      name: "[${bundle.target}] SSA Dashboard - Deploy Views"
+      description: "Deploy/refresh SSA dashboard SQL views to cjc_views schema. Run on logfood target."
+
+      # Daily schedule at 6 AM UTC
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"
+        timezone_id: "UTC"
+        pause_status: "UNPAUSED"
+
+      tasks:
+        - task_key: "deploy_all_views"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/deploy_views.sql
+
+      # Email notifications
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+        on_success:
+          - "christopher.chalcraft@databricks.com"
+
+      # Tags for organization
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "view-deployment"
