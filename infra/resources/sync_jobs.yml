@@ -1,0 +1,103 @@
+# SSA Dashboard Sync Jobs
+# Syncs data from logfood views to fevm-cjc Delta tables to Lakebase
+
+resources:
+  jobs:
+    # Job 1: Export from logfood views to Delta tables
+    # NOTE: Must run on logfood workspace with cross-workspace write access
+    ssa_dashboard_export_to_delta:
+      name: "[${bundle.target}] SSA Dashboard - Export to Delta"
+      description: "Export SSA dashboard views from logfood to Delta tables on fevm-cjc"
+
+      # Daily schedule at 6:30 AM UTC (after view refresh)
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"
+        timezone_id: "UTC"
+        pause_status: "PAUSED"  # Enable after initial validation
+
+      tasks:
+        - task_key: "export_to_delta"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/sync/01_export_to_delta.sql
+
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "data-sync"
+        sync_tier: "logfood-to-delta"
+
+    # Job 2: Sync from Delta tables to Lakebase
+    ssa_dashboard_sync_to_lakebase:
+      name: "[${bundle.target}] SSA Dashboard - Sync to Lakebase"
+      description: "Sync Delta tables to Lakebase PostgreSQL for app access"
+
+      # Daily schedule at 7:00 AM UTC (after Delta export completes)
+      schedule:
+        quartz_cron_expression: "0 0 7 * * ?"
+        timezone_id: "UTC"
+        pause_status: "PAUSED"  # Enable after initial validation
+
+      tasks:
+        - task_key: "sync_to_lakebase"
+          python_task:
+            python_file: ${workspace.file_path}/src/jobs/sync_to_lakebase.py
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 0
+            spark_conf:
+              spark.master: "local[*]"
+              spark.databricks.cluster.profile: "singleNode"
+
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "data-sync"
+        sync_tier: "delta-to-lakebase"
+
+    # Job 3: Data Validation
+    ssa_dashboard_validate_data:
+      name: "[${bundle.target}] SSA Dashboard - Validate Data"
+      description: "Run data validation tests across all tiers"
+
+      # Weekly schedule on Monday at 8 AM UTC
+      schedule:
+        quartz_cron_expression: "0 0 8 ? * MON"
+        timezone_id: "UTC"
+        pause_status: "PAUSED"
+
+      tasks:
+        - task_key: "validate_delta_tables"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/tests/02_validate_delta_tables.sql
+
+        - task_key: "validate_cross_tier"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/tests/03_validate_cross_tier.sql
+          depends_on:
+            - task_key: "validate_delta_tables"
+
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+        on_success:
+          - "christopher.chalcraft@databricks.com"
+
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "data-validation"

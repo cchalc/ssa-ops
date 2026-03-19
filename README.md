@@ -199,27 +199,22 @@ databricks postgres delete-branch "projects/ssa-ops-dev/branches/my-feature"
 
 This repo includes SQL views and infrastructure for tracking SSA charter activities.
 
-### Dashboard Architecture
+> **📐 See [docs/architecture.md](docs/architecture.md) for complete data flow diagrams (Mermaid)**
 
-```
-┌─────────────────────────┐     ┌─────────────────────────┐
-│   AI/BI Dashboard       │     │   ssa-ops (TanStack)    │
-│   (Executive View)      │     │   (Operational View)    │
-└───────────┬─────────────┘     └───────────┬─────────────┘
-            │                               │
-            └───────────┬───────────────────┘
-                        ▼
-            ┌───────────────────────┐
-            │  SQL Views (cjc_*)    │
-            │  home_christopher_    │
-            │  chalcraft.cjc_views  │
-            └───────────┬───────────┘
-                        ▼
-            ┌───────────────────────┐
-            │  Source Tables        │
-            │  stitch.salesforce.*  │
-            │  main.gtm_gold.*      │
-            └───────────────────────┘
+### Data Flow Overview
+
+```mermaid
+flowchart LR
+    SF[(Salesforce)] --> Views[(SQL Views<br/>logfood)]
+    Views -->|Daily Sync| Delta[(Delta Tables<br/>fevm-cjc)]
+    Delta --> LB[(Lakebase<br/>PostgreSQL)]
+    LB --> App[ssa-ops App]
+
+    style SF fill:#e3f2fd
+    style Views fill:#e3f2fd
+    style Delta fill:#fff3e0
+    style LB fill:#e8f5e9
+    style App fill:#fce4ec
 ```
 
 ### SQL Views
@@ -253,11 +248,13 @@ See [docs/metrics-tree.md](docs/metrics-tree.md) for full view-to-metric mapping
 
 ## Documentation
 
-- [PROJECT.md](PROJECT.md) - Development conventions
-- [CLAUDE.md](CLAUDE.md) - AI assistant instructions
+- **[docs/architecture.md](docs/architecture.md)** - Data flow diagrams (Mermaid), sync jobs, tables
+- **[docs/testing.md](docs/testing.md)** - Data validation test suite
 - [docs/metrics-tree.md](docs/metrics-tree.md) - View to metric mapping
 - [docs/data-dictionary.md](docs/data-dictionary.md) - Field definitions
 - [docs/REFERENCES.md](docs/REFERENCES.md) - External charter docs
+- [PROJECT.md](PROJECT.md) - Development conventions
+- [CLAUDE.md](CLAUDE.md) - AI assistant instructions
 - [docs/electric-setup.md](docs/electric-setup.md) - Electric SQL setup (blocked by replication limitation)
 - [docs/adr/](docs/adr/) - Architecture Decision Records
 

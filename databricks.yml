@@ -7,17 +7,22 @@ bundle:
 sync:
   include:
     - src/sql/**
+    - src/jobs/**
     - sql/**
     - pipelines/**
 
+# Lakebase + App infrastructure (fevm-cjc workspace)
 include:
   - infra/resources/lakebase.yml
   - infra/resources/jobs.yml
   - infra/resources/pipelines.yml
+  - infra/resources/sync_jobs.yml
   # NOTE: synced_tables.yml requires CREATE CATALOG permission on metastore
   # - infra/resources/synced_tables.yml
   # Uncomment after first build:
   # - infra/resources/app.yml
+
+# For SQL views deployment, use databricks-logfood.yml instead
 
 variables:
   # Unity Catalog namespace
@@ -76,16 +81,8 @@ targets:
       autoscaling_min_cu: "0.5"
       autoscaling_max_cu: "2"
 
-  # Logfood workspace for SQL views (has access to stitch.salesforce)
-  logfood:
-    mode: development
-    workspace:
-      profile: logfood
-    variables:
-      catalog: "home_christopher_chalcraft"
-      schema: "cjc_views"
-      warehouse_id: "927ac096f9833442"  # Shared SQL Endpoint - Stable
-      logfood_warehouse_id: "927ac096f9833442"
+  # NOTE: For SQL views deployment to logfood, use:
+  #   databricks bundle deploy --config databricks-logfood.yml
 
   staging:
     mode: development
