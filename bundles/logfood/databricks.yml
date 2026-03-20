@@ -1,0 +1,49 @@
+# Logfood Bundle - Export Job Only
+# Deploys the export job that reads from logfood views and writes to fevm-cjc Delta tables
+#
+# Usage:
+#   cd bundles/logfood && databricks bundle deploy
+#   cd bundles/logfood && databricks bundle run ssa_dashboard_export_to_delta
+
+bundle:
+  name: ssa_ops_logfood
+
+sync:
+  include:
+    - ../../sql/sync/**
+
+resources:
+  jobs:
+    ssa_dashboard_export_to_delta:
+      name: "[logfood] SSA Dashboard - Export to Delta"
+      description: "Export SSA dashboard views from logfood to Delta tables on fevm-cjc"
+
+      # Daily schedule at 6:30 AM UTC (after Stitch sync)
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"
+        timezone_id: "UTC"
+        pause_status: "PAUSED"
+
+      tasks:
+        - task_key: "export_to_delta"
+          sql_task:
+            warehouse_id: "927ac096f9833442"  # Shared SQL Endpoint - Stable
+            file:
+              path: ${workspace.file_path}/sql/sync/01_export_to_delta.sql
+
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "data-sync"
+        sync_direction: "logfood-to-fevm"
+
+targets:
+  default:
+    default: true
+    mode: development
+    workspace:
+      profile: logfood

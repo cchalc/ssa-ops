@@ -1,0 +1,35 @@
+# SSA Dashboard Export Job (runs on logfood)
+# Reads from logfood views, writes to fevm-cjc Delta tables
+#
+# This job runs on logfood workspace because:
+#   - Source views (home_christopher_chalcraft.cjc_views.*) are on logfood
+#   - Cross-catalog write to fevm-cjc requires running from logfood
+
+resources:
+  jobs:
+    ssa_dashboard_export_to_delta:
+      name: "[${bundle.target}] SSA Dashboard - Export to Delta"
+      description: "Export SSA dashboard views from logfood to Delta tables on fevm-cjc"
+
+      # Daily schedule at 6:30 AM UTC (after Stitch sync completes ~4am)
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"
+        timezone_id: "UTC"
+        pause_status: "PAUSED"  # Enable after initial validation
+
+      tasks:
+        - task_key: "export_to_delta"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/sync/01_export_to_delta.sql
+
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "data-sync"
+        sync_direction: "logfood-to-fevm"

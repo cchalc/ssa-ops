@@ -9,11 +9,21 @@ default:
 
 # === DEPLOYMENT ===
 
+# Deploy all (both workspaces)
+deploy-all: deploy-logfood deploy-dev
+    @echo "✓ All deployments complete"
+
+# Deploy export job to logfood workspace
+deploy-logfood:
+    @echo "Deploying export job to logfood..."
+    cd bundles/logfood && databricks bundle deploy
+    @echo "✓ Logfood deploy complete"
+
 # Deploy to fevm-cjc dev environment
 deploy-dev:
     @echo "Deploying to fevm-cjc (dev)..."
     databricks bundle deploy -t dev
-    @echo "✓ Deploy complete"
+    @echo "✓ fevm-cjc deploy complete"
 
 # Deploy to fevm-cjc staging
 deploy-staging:
@@ -34,9 +44,6 @@ deploy-views:
     @echo "1. Open: https://adb-2548836972759138.18.azuredatabricks.net/sql/editor"
     @echo "2. Select warehouse: Shared SQL Endpoint - Stable (927ac096f9833442)"
     @echo "3. Run: sql/deploy_views.sql"
-    @echo ""
-    @echo "Or use databricks CLI with logfood profile:"
-    @echo "  databricks sql query --profile logfood -w 927ac096f9833442 -f sql/deploy_views.sql"
 
 # === VALIDATION ===
 
@@ -58,34 +65,39 @@ validate-delta:
 
 # === SYNC JOBS ===
 
-# Run export from logfood to Delta (via job)
+# Run export from logfood to Delta (runs on logfood workspace)
 sync-to-delta:
-    @echo "Triggering export to Delta job..."
-    databricks bundle run -t dev ssa_dashboard_export_to_delta --no-wait || { \
+    @echo "Triggering export to Delta job on logfood..."
+    cd bundles/logfood && databricks bundle run ssa_dashboard_export_to_delta --no-wait || { \
         echo ""; \
-        echo "⚠ Job not available or failed. Run manually:"; \
-        echo "  1. Open: https://adb-2548836972759138.18.azuredatabricks.net/sql/editor"; \
-        echo "  2. Run: sql/sync/01_export_to_delta.sql"; \
+        echo "⚠ Job not available. Deploy first: just deploy-logfood"; \
+        echo "  Or run manually on logfood SQL Editor:"; \
+        echo "  sql/sync/01_export_to_delta.sql"; \
     }
 
-# Run sync from Delta to Lakebase
+# Run sync from Delta to Lakebase (runs on fevm-cjc)
 sync-to-lakebase:
-    @echo "Triggering sync to Lakebase job..."
+    @echo "Triggering sync to Lakebase job on fevm-cjc..."
     databricks bundle run -t dev ssa_dashboard_sync_to_lakebase --no-wait || { \
-        echo "⚠ Job failed to start"; \
+        echo "⚠ Job failed to start. Deploy first: just deploy-dev"; \
     }
 
 # Full sync pipeline: logfood → Delta → Lakebase
 sync-all:
     @echo "Starting full sync pipeline..."
     @echo ""
+    @echo "Step 1: Export logfood views → Delta tables"
     just sync-to-delta
     @echo ""
-    @echo "Waiting 30s for Delta export to complete..."
-    @sleep 30
+    @echo "Waiting 60s for Delta export to complete..."
+    @sleep 60
+    @echo ""
+    @echo "Step 2: Sync Delta → Lakebase"
     just sync-to-lakebase
     @echo ""
-    @echo "✓ Sync jobs triggered (check Databricks for status)"
+    @echo "✓ Sync jobs triggered"
+    @echo "  Monitor at: https://fevm-cjc-aws-workspace.cloud.databricks.com/jobs"
+    @echo "  Monitor at: https://adb-2548836972759138.18.azuredatabricks.net/jobs"
 
 # === JOBS ===
 

@@ -1,0 +1,47 @@
+# Databricks Asset Bundle for logfood workspace
+# Deploys the export job that reads from logfood views and writes to fevm-cjc Delta tables
+#
+# Usage:
+#   databricks bundle deploy --config databricks-logfood.yml -t logfood
+#   databricks bundle run --config databricks-logfood.yml -t logfood ssa_dashboard_export_to_delta
+
+bundle:
+  name: ssa_ops_logfood
+
+sync:
+  include:
+    - sql/sync/**
+    - sql/views/**
+
+include:
+  - infra/resources/logfood_jobs.yml
+
+variables:
+  # Source views on logfood
+  source_catalog:
+    default: "home_christopher_chalcraft"
+  source_schema:
+    default: "cjc_views"
+
+  # Target Delta tables on fevm-cjc (cross-workspace write)
+  target_catalog:
+    default: "cjc_aws_workspace_catalog"
+  target_schema:
+    default: "ssa_ops_dev"
+
+  # Logfood SQL warehouse
+  warehouse_id:
+    default: "927ac096f9833442"  # Shared SQL Endpoint - Stable
+
+targets:
+  logfood:
+    default: true
+    mode: development
+    workspace:
+      profile: logfood
+    variables:
+      source_catalog: "home_christopher_chalcraft"
+      source_schema: "cjc_views"
+      target_catalog: "cjc_aws_workspace_catalog"
+      target_schema: "ssa_ops_dev"
+      warehouse_id: "927ac096f9833442"

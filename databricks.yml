@@ -12,6 +12,7 @@ sync:
     - pipelines/**
 
 # Lakebase + App infrastructure (fevm-cjc workspace)
+# NOTE: Export job is in bundles/logfood/ (separate bundle for logfood workspace)
 include:
   - infra/resources/lakebase.yml
   - infra/resources/jobs.yml
@@ -81,8 +82,7 @@ targets:
       autoscaling_min_cu: "0.5"
       autoscaling_max_cu: "2"
 
-  # NOTE: For SQL views deployment to logfood, use:
-  #   databricks bundle deploy --config databricks-logfood.yml
+  # NOTE: Logfood export job is in bundles/logfood/ (separate bundle)
 
   staging:
     mode: development
