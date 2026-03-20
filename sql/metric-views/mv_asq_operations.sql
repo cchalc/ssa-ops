@@ -65,14 +65,39 @@ SELECT
 
   asq.status
     COMMENT 'Current ASQ status' AS `ASQ Status`,
-  CASE WHEN asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold')
-       THEN 'Open' ELSE 'Closed' END
-    COMMENT 'Open vs Closed flag' AS `Is Open`,
-  CASE WHEN asq.status NOT IN ('Complete', 'Closed', 'Rejected')
+  -- Status category mapping (handles 30+ actual status values)
+  CASE
+    WHEN asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                        'Unassigned', 'Review In Progress', 'Review Pending',
+                        '1. Briefing complete', '2. Actively engaged',
+                        'Additional Details Required', 'Pending', 'Draft', 'Pending Confirmation')
+    THEN 'Open'
+    WHEN asq.status IN ('Complete', 'Closed', 'Completed', 'Rejected', 'Cancelled',
+                        '3. Delivered', '4. Engagement lost', 'Relegated', 'Delivered', '0. Not engaged')
+    THEN 'Closed'
+    WHEN asq.status IN ('Approved', 'Approved. Project creation in progress',
+                        'Pilot Approved', 'Manually Triggered', 'Submitted')
+    THEN 'Approved'
+    WHEN asq.status IN ('5. On hold')
+    THEN 'On Hold'
+    WHEN asq.status IS NULL OR asq.status = 'None'
+    THEN 'Unknown'
+    ELSE 'Other'
+  END
+    COMMENT 'Status category: Open, Closed, Approved, On Hold, Other' AS `Status Category`,
+  -- Overdue flag (only for truly open statuses)
+  CASE WHEN asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                           'Unassigned', 'Review In Progress', 'Review Pending',
+                           '1. Briefing complete', '2. Actively engaged',
+                           'Additional Details Required', 'Pending', 'Draft')
         AND asq.target_end_date < CURRENT_DATE()
        THEN 'Overdue' ELSE 'On Track' END
     COMMENT 'Overdue status flag' AS `Is Overdue`,
-  CASE WHEN asq.status NOT IN ('Complete', 'Closed', 'Rejected')
+  -- At Risk flag (due within 3 days)
+  CASE WHEN asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                           'Unassigned', 'Review In Progress', 'Review Pending',
+                           '1. Briefing complete', '2. Actively engaged',
+                           'Additional Details Required', 'Pending', 'Draft')
         AND asq.target_end_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), 3)
        THEN 'At Risk' ELSE 'OK' END
     COMMENT 'At risk (due within 3 days)' AS `Is At Risk`,
@@ -126,14 +151,32 @@ SELECT
 
   COUNT(1)
     COMMENT 'Total number of ASQs' AS `Total ASQs`,
-  COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold'))
+  -- Open ASQs (all open statuses)
+  COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                                        'Unassigned', 'Review In Progress', 'Review Pending',
+                                        '1. Briefing complete', '2. Actively engaged',
+                                        'Additional Details Required', 'Pending', 'Draft', 'Pending Confirmation'))
     COMMENT 'Currently open ASQs' AS `Open ASQs`,
-  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed', 'Rejected'))
+  -- Closed ASQs (all closed statuses)
+  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed', 'Completed', 'Rejected', 'Cancelled',
+                                        '3. Delivered', '4. Engagement lost', 'Relegated', 'Delivered', '0. Not engaged'))
     COMMENT 'Completed or closed ASQs' AS `Closed ASQs`,
-  COUNT(1) FILTER (WHERE asq.status NOT IN ('Complete', 'Closed', 'Rejected')
+  -- Approved ASQs
+  COUNT(1) FILTER (WHERE asq.status IN ('Approved', 'Approved. Project creation in progress',
+                                        'Pilot Approved', 'Manually Triggered', 'Submitted'))
+    COMMENT 'Approved ASQs awaiting action' AS `Approved ASQs`,
+  -- Overdue (open and past due date)
+  COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                                        'Unassigned', 'Review In Progress', 'Review Pending',
+                                        '1. Briefing complete', '2. Actively engaged',
+                                        'Additional Details Required', 'Pending', 'Draft')
                      AND asq.target_end_date < CURRENT_DATE())
     COMMENT 'Past due date, not completed' AS `Overdue ASQs`,
-  COUNT(1) FILTER (WHERE asq.status NOT IN ('Complete', 'Closed', 'Rejected')
+  -- At Risk (open and due within 3 days)
+  COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                                        'Unassigned', 'Review In Progress', 'Review Pending',
+                                        '1. Briefing complete', '2. Actively engaged',
+                                        'Additional Details Required', 'Pending', 'Draft')
                      AND asq.target_end_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), 3))
     COMMENT 'Due within 3 days and still open' AS `At Risk ASQs`,
   COUNT(1) FILTER (WHERE asq.status = 'New')
@@ -142,19 +185,19 @@ SELECT
     COMMENT 'Currently being worked' AS `In Progress ASQs`,
   COUNT(1) FILTER (WHERE asq.status = 'Under Review')
     COMMENT 'Under initial review' AS `Under Review ASQs`,
-  COUNT(1) FILTER (WHERE asq.status = 'On Hold')
+  COUNT(1) FILTER (WHERE asq.status IN ('On Hold', '5. On hold'))
     COMMENT 'Temporarily on hold' AS `On Hold ASQs`,
 
   -- ========================================================================
   -- COMPLETION MEASURES
   -- ========================================================================
 
-  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed'))
+  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed', 'Completed', '3. Delivered', 'Delivered', '0. Not engaged'))
     COMMENT 'ASQs with completion status' AS `Completed ASQs`,
-  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed')
+  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed', 'Completed', '3. Delivered', 'Delivered')
                      AND asq.actual_completion_date <= asq.target_end_date)
     COMMENT 'Completed on or before due date' AS `On-Time Completions`,
-  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed')
+  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed', 'Completed', '3. Delivered', 'Delivered')
                      AND asq.actual_completion_date > asq.target_end_date)
     COMMENT 'Completed after due date' AS `Late Completions`,
 
@@ -162,23 +205,39 @@ SELECT
   -- RATE MEASURES (safe re-aggregation)
   -- ========================================================================
 
-  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed')
+  -- On-Time Rate
+  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed', 'Completed', '3. Delivered', 'Delivered')
                      AND asq.actual_completion_date <= asq.target_end_date) * 1.0
-    / NULLIF(COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed')), 0)
+    / NULLIF(COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed', 'Completed', '3. Delivered', 'Delivered', '0. Not engaged')), 0)
     COMMENT 'Percentage of ASQs completed on time' AS `On-Time Rate`,
 
-  COUNT(1) FILTER (WHERE asq.status NOT IN ('Complete', 'Closed', 'Rejected')
+  -- Overdue Rate
+  COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                                        'Unassigned', 'Review In Progress', 'Review Pending',
+                                        '1. Briefing complete', '2. Actively engaged',
+                                        'Additional Details Required', 'Pending', 'Draft')
                      AND asq.target_end_date < CURRENT_DATE()) * 1.0
-    / NULLIF(COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold')), 0)
+    / NULLIF(COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                                                   'Unassigned', 'Review In Progress', 'Review Pending',
+                                                   '1. Briefing complete', '2. Actively engaged',
+                                                   'Additional Details Required', 'Pending', 'Draft')), 0)
     COMMENT 'Percentage of open ASQs that are overdue' AS `Overdue Rate`,
 
-  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed')) * 1.0
+  -- Completion Rate
+  COUNT(1) FILTER (WHERE asq.status IN ('Complete', 'Closed', 'Completed', '3. Delivered', 'Delivered', '0. Not engaged')) * 1.0
     / NULLIF(COUNT(1), 0)
     COMMENT 'Percentage of ASQs completed (closed)' AS `Completion Rate`,
 
-  COUNT(1) FILTER (WHERE asq.status NOT IN ('Complete', 'Closed', 'Rejected')
+  -- At Risk Rate
+  COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                                        'Unassigned', 'Review In Progress', 'Review Pending',
+                                        '1. Briefing complete', '2. Actively engaged',
+                                        'Additional Details Required', 'Pending', 'Draft')
                      AND asq.target_end_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), 3)) * 1.0
-    / NULLIF(COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold')), 0)
+    / NULLIF(COUNT(1) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                                                   'Unassigned', 'Review In Progress', 'Review Pending',
+                                                   '1. Briefing complete', '2. Actively engaged',
+                                                   'Additional Details Required', 'Pending', 'Draft')), 0)
     COMMENT 'Percentage of open ASQs at risk' AS `At Risk Rate`,
 
   -- ========================================================================
@@ -195,7 +254,10 @@ SELECT
     COMMENT 'Fastest completion time' AS `Min Days to Complete`,
   MAX(DATEDIFF(asq.actual_completion_date, asq.created_date))
     COMMENT 'Longest completion time' AS `Max Days to Complete`,
-  AVG(DATEDIFF(CURRENT_DATE(), asq.created_date)) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold'))
+  AVG(DATEDIFF(CURRENT_DATE(), asq.created_date)) FILTER (WHERE asq.status IN ('New', 'Assigned', 'In Progress', 'Under Review', 'On Hold',
+                                                                                 'Unassigned', 'Review In Progress', 'Review Pending',
+                                                                                 '1. Briefing complete', '2. Actively engaged',
+                                                                                 'Additional Details Required', 'Pending', 'Draft'))
     COMMENT 'Average days open (for open ASQs)' AS `Avg Days Open`,
 
   -- ========================================================================
