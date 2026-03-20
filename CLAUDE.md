@@ -1,6 +1,114 @@
-# Kyle's Stack
+# SSA Activity Dashboard
 
-A starter for building apps with TanStack Start, Radix UI, and capsize typography.
+An SSA operations dashboard built with TanStack Start, connecting to Databricks GTM data.
+
+## IMPORTANT: Read GTM Docs Before Working on Metrics
+
+Before working on any metrics, data model, or SQL:
+
+1. **Read GTM Gold Documentation**: `docs/gtmhub_docs.md` contains links to authoritative docs
+2. **Understand the Medallion Architecture**: Bronze → Silver → Gold layers
+3. **Use GTM naming conventions**: `[account/individual]_[metric]_[timegrain]`
+4. **Query logfood to understand available data** before designing metrics
+
+## GTM Data Model Reference
+
+### Key GTM Tables (on logfood / main catalog)
+
+| Layer | Table | Description |
+|-------|-------|-------------|
+| Gold | `main.gtm_gold.account_obt` | Account-level metrics at fiscal quarter granularity |
+| Gold | `main.gtm_gold.individual_obt` | Individual-level metrics at fiscal quarter |
+| Gold | `main.gtm_gold.account_period_over_period` | Daily snapshots for trend analysis |
+| Gold | `main.gtm_gold.account_consumption_daily` | Daily consumption metrics |
+| Gold | `main.gtm_gold.usecase_pipe_gen_amount` | Pipe gen tracking |
+| Silver | `main.gtm_silver.use_case_detail` | UCO/use case data (current) |
+| Silver | `main.gtm_silver.use_case_detail_history` | UCO historical snapshots |
+| Silver | `main.gtm_silver.opportunity_detail` | Opportunity data (current) |
+| Silver | `main.gtm_silver.account_dim` | Account dimension with owner |
+| Silver | `main.gtm_silver.individual_hierarchy_salesforce` | User hierarchy |
+| Silver | `main.gtm_silver.targets_account` | Account-level targets |
+
+### SSA Source Tables (stitch.salesforce on logfood)
+
+| Table | Description |
+|-------|-------------|
+| `stitch.salesforce.approvalrequest__c` | ASQ (Approval/Support Request) records |
+| `stitch.salesforce.approved_usecase__c` | UCO (Use Case Opportunity) records |
+| `stitch.salesforce.user` | Salesforce user records |
+| `stitch.salesforce.account` | Customer accounts |
+
+### Key Design Principles
+
+1. **Only accounts with valid owners appear in GTM Gold** - owner must be active AE
+2. **OBTs aggregated at fiscal quarter level** - use PoP tables for daily granularity
+3. **Fiscal year ends January 31** (Databricks FY)
+4. **SSAs not impacted by security hardening** - can see all GTM data
+5. **Never hardcode BU filters** - make views portable
+
+### Naming Conventions
+
+- Tables: `[account/individual]_[metric]_[timegrain]` (e.g., `account_consumption_daily`)
+- OBTs: `[account/individual]_obt`
+- Targets: `target_[metric]`
+- Forecasts: `forecast_[metric]`
+- Metric Views: `mv_[domain]_[focus]` (e.g., `mv_asq_operations`)
+
+### GTM Functions (utility views)
+
+- `main.gtm_gold.check_user_setup` - Validate user configuration
+- `main.gtm_gold.check_hub_visibility` - Check user visibility rules
+- `main.gtm_gold.check_pipe_gen_status` - Diagnose pipe gen issues
+- `main.gtm_gold.check_user_targets` - Look up user targets
+
+### Refresh Cadences
+
+- Consumption actuals: Once daily ~11am PST
+- OBTs & Materialized Views: Every 1 hour
+- GTM Silver/Gold Workflows: Every 2 hours
+- Pipe Gen, Clari, Use Cases: Every 2 hours
+
+### SSA-Specific Data (approval_request_detail)
+
+Key columns for ASQ analysis:
+- `approval_request_id`, `approval_request_name` - identifiers
+- `owner_user_id`, `owner_user_name` - SSA owner
+- `account_id`, `account_name` - customer
+- `status` - Complete, Approved, Rejected, In Progress, New, Assigned
+- `support_type` - Platform Administration, Production Architecture Review & Design, etc.
+- `technical_specialization` - Data Science, Data Engineering, Platform, etc.
+- `business_unit` - AMER Enterprise & Emerging, AMER Industries, EMEA, APJ
+- `region_level_1` - CAN, RCT, FINS, etc.
+- `estimated_effort_in_days`, `actual_effort_in_days` - effort tracking
+- `created_date`, `target_end_date`, `actual_completion_date` - SLA dates
+
+### Business Unit Mapping
+
+| business_unit | region_level_1 | Description |
+|---------------|----------------|-------------|
+| AMER Enterprise & Emerging | CAN | Canada |
+| AMER Enterprise & Emerging | RCT, EE & Startup, DNB, CMEG, LATAM | US regions |
+| AMER Industries | MFG, FINS, HLS, PS | Verticals |
+| EMEA | SEMEA, UKI, Central, BeNo, Emerging | Europe |
+| APJ | ANZ, India, Asean + GCR, Korea, Japan | Asia-Pacific |
+
+### Joining ASQ to Business Metrics
+
+```sql
+-- Link ASQ work to consumption impact
+SELECT
+  a.approval_request_name,
+  a.account_name,
+  a.status,
+  a.business_unit,
+  ao.dbu_dollars_qtd,
+  ao.spend_tier
+FROM main.gtm_silver.approval_request_detail a
+LEFT JOIN main.gtm_gold.account_obt ao
+  ON a.account_id = ao.account_id
+  AND ao.fiscal_year_quarter = "FY'26 Q4"
+WHERE a.snapshot_date = (SELECT MAX(snapshot_date) FROM main.gtm_silver.approval_request_detail)
+```
 
 ## Shell Environment
 

@@ -1,0 +1,190 @@
+# SSA Dashboard Metric View Jobs
+# Workflows for metric view validation and maintenance
+# Source data comes from logfood GTM Silver/Gold tables
+
+resources:
+  jobs:
+    # Job: Validate Metric Views
+    ssa_metric_view_validation:
+      name: "[${bundle.target}] SSA Metric Views - Validation"
+      description: "Run comprehensive validation tests on metric views and source data"
+
+      # Daily schedule at 9 AM UTC
+      schedule:
+        quartz_cron_expression: "0 0 9 * * ?"
+        timezone_id: "UTC"
+        pause_status: "PAUSED"  # Enable after initial deployment
+
+      tasks:
+        # Task 1: Core metric view validation
+        - task_key: "validate_metric_views"
+          sql_task:
+            warehouse_id: ${var.logfood_warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/tests/validate_metric_views.sql
+
+        # Task 2: Data quality checks
+        - task_key: "validate_data_quality"
+          sql_task:
+            warehouse_id: ${var.logfood_warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/tests/validate_data_quality.sql
+          depends_on:
+            - task_key: "validate_metric_views"
+
+        # Task 3: Cross-BU consistency
+        - task_key: "validate_cross_bu"
+          sql_task:
+            warehouse_id: ${var.logfood_warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/tests/validate_cross_bu.sql
+          depends_on:
+            - task_key: "validate_data_quality"
+
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "data-validation"
+        data_source: "gtm-silver-gold"
+
+    # Job: Performance Benchmarks
+    ssa_metric_view_performance:
+      name: "[${bundle.target}] SSA Metric Views - Performance Benchmarks"
+      description: "Run performance benchmark tests on metric view queries"
+
+      # Weekly schedule on Sunday at 6 AM UTC
+      schedule:
+        quartz_cron_expression: "0 0 6 ? * SUN"
+        timezone_id: "UTC"
+        pause_status: "PAUSED"
+
+      tasks:
+        - task_key: "run_benchmarks"
+          sql_task:
+            warehouse_id: ${var.logfood_warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/tests/benchmark_performance.sql
+
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "performance"
+        data_source: "gtm-silver-gold"
+
+    # Job: Deploy Metric Views
+    ssa_metric_view_deploy:
+      name: "[${bundle.target}] SSA Metric Views - Deploy"
+      description: "Deploy all metric views to target catalog/schema"
+
+      # Manual trigger only (no schedule)
+      tasks:
+        # Core metric views
+        - task_key: "deploy_mv_asq_operations"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_asq_operations.sql
+          parameters:
+            - name: "catalog"
+              default: ${var.catalog}
+            - name: "schema"
+              default: ${var.schema}
+
+        - task_key: "deploy_mv_sla_compliance"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_sla_compliance.sql
+          parameters:
+            - name: "catalog"
+              default: ${var.catalog}
+            - name: "schema"
+              default: ${var.schema}
+          depends_on:
+            - task_key: "deploy_mv_asq_operations"
+
+        - task_key: "deploy_mv_effort_capacity"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_effort_capacity.sql
+          parameters:
+            - name: "catalog"
+              default: ${var.catalog}
+            - name: "schema"
+              default: ${var.schema}
+          depends_on:
+            - task_key: "deploy_mv_sla_compliance"
+
+        # Extended metric views
+        - task_key: "deploy_mv_consumption_impact"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_consumption_impact.sql
+          parameters:
+            - name: "catalog"
+              default: ${var.catalog}
+            - name: "schema"
+              default: ${var.schema}
+          depends_on:
+            - task_key: "deploy_mv_effort_capacity"
+
+        - task_key: "deploy_mv_pipeline_impact"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_pipeline_impact.sql
+          parameters:
+            - name: "catalog"
+              default: ${var.catalog}
+            - name: "schema"
+              default: ${var.schema}
+          depends_on:
+            - task_key: "deploy_mv_consumption_impact"
+
+        - task_key: "deploy_mv_team_comparison"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_team_comparison.sql
+          parameters:
+            - name: "catalog"
+              default: ${var.catalog}
+            - name: "schema"
+              default: ${var.schema}
+          depends_on:
+            - task_key: "deploy_mv_pipeline_impact"
+
+        - task_key: "deploy_mv_trend_analysis"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_trend_analysis.sql
+          parameters:
+            - name: "catalog"
+              default: ${var.catalog}
+            - name: "schema"
+              default: ${var.schema}
+          depends_on:
+            - task_key: "deploy_mv_team_comparison"
+
+      email_notifications:
+        on_failure:
+          - "christopher.chalcraft@databricks.com"
+        on_success:
+          - "christopher.chalcraft@databricks.com"
+
+      tags:
+        team: "ssa-can-bu"
+        domain: "analytics"
+        job_type: "deployment"
+        data_source: "gtm-silver-gold"
