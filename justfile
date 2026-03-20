@@ -210,12 +210,7 @@ export-raw:
 # Deploy all metric views
 deploy-metric-views:
     @echo "Deploying metric views..."
-    for f in sql/metric-views/*.sql
-        echo "  Deploying $f..."
-        databricks sql execute -f $f \
-            --var "catalog={{catalog}}" \
-            --var "schema={{schema}}"
-    end
+    @for f in sql/metric-views/mv_*.sql; echo "  Deploying $f..."; databricks sql execute -f $f --var "catalog={{catalog}}" --var "schema={{schema}}"; end
     @echo "✓ Metric views deployed"
 
 # Deploy a specific metric view
@@ -239,13 +234,18 @@ query-mv-all name:
     databricks sql execute -q "SELECT \`Business Unit\`, COUNT(1) AS cnt FROM {{catalog}}.{{schema}}.{{name}} GROUP BY ALL"
 
 # === METRIC VIEW TESTING ===
+# NOTE: These commands require running SQL manually on logfood SQL Editor
+# or using the Databricks MCP tool. The `databricks sql execute` command
+# is not available in all CLI versions.
 
 # Run all metric view validation tests
 test-metric-views:
     @echo "Running metric view validation tests..."
-    @echo "  Testing on logfood workspace..."
-    databricks sql execute -f sql/tests/validate_metric_views.sql -p logfood
-    @echo "✓ Metric view tests complete"
+    @echo "  Open logfood SQL Editor and run: sql/tests/validate_metric_views.sql"
+    @echo "  Or use Databricks MCP: mcp__databricks-v2__execute_parameterized_sql"
+    @echo ""
+    @echo "  Workspace: https://adb-2548836972759138.18.azuredatabricks.net/sql/editor"
+    @echo "  Warehouse: Shared SQL Endpoint - Stable (927ac096f9833442)"
 
 # Run data quality tests
 test-data-quality:
