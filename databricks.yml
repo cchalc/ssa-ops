@@ -18,6 +18,7 @@ include:
   - infra/resources/jobs.yml
   - infra/resources/pipelines.yml
   - infra/resources/sync_jobs.yml
+  - infra/resources/metric_views.yml
   # NOTE: synced_tables.yml requires CREATE CATALOG permission on metastore
   # - infra/resources/synced_tables.yml
   # Uncomment after first build:

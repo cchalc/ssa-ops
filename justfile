@@ -142,3 +142,222 @@ test:
 # Build app
 build:
     pnpm build
+
+# === DIMENSIONAL MODEL ===
+
+# Set default catalog/schema for SQL commands
+catalog := "cjc_aws_workspace_catalog"
+schema := "ssa_ops"
+source_catalog := "cjc_aws_workspace_catalog"
+source_schema := "ssa_ops_dev"
+
+# Create dimensional model schema
+create-schema:
+    @echo "Creating schema {{catalog}}.{{schema}}..."
+    databricks sql execute -q "CREATE SCHEMA IF NOT EXISTS {{catalog}}.{{schema}}"
+    @echo "✓ Schema created"
+
+# Create all dimension tables
+create-dims:
+    @echo "Creating dimension tables..."
+    @echo "  Creating dim_date..."
+    databricks sql execute -f sql/tables/01_dim_date.sql \
+        --var "catalog={{catalog}}" \
+        --var "schema={{schema}}"
+    @echo "  Creating dim_ssa..."
+    databricks sql execute -f sql/tables/01_dim_ssa.sql \
+        --var "catalog={{catalog}}" \
+        --var "schema={{schema}}" \
+        --var "source_catalog={{source_catalog}}" \
+        --var "source_schema={{source_schema}}"
+    @echo "  Creating dim_account..."
+    databricks sql execute -f sql/tables/01_dim_account.sql \
+        --var "catalog={{catalog}}" \
+        --var "schema={{schema}}" \
+        --var "source_catalog={{source_catalog}}" \
+        --var "source_schema={{source_schema}}"
+    @echo "✓ Dimension tables created"
+
+# Create all fact tables
+create-facts:
+    @echo "Creating fact tables..."
+    @echo "  Creating fact_asq..."
+    databricks sql execute -f sql/tables/02_fact_asq.sql \
+        --var "catalog={{catalog}}" \
+        --var "schema={{schema}}" \
+        --var "source_catalog={{source_catalog}}" \
+        --var "source_schema={{source_schema}}"
+    @echo "  Creating fact_uco..."
+    databricks sql execute -f sql/tables/02_fact_uco.sql \
+        --var "catalog={{catalog}}" \
+        --var "schema={{schema}}" \
+        --var "source_catalog={{source_catalog}}" \
+        --var "source_schema={{source_schema}}"
+    @echo "✓ Fact tables created"
+
+# Create all dimensional model tables
+create-tables: create-schema create-dims create-facts
+    @echo "✓ All dimensional model tables created"
+
+# Export raw Salesforce data from logfood
+export-raw:
+    @echo "Exporting raw Salesforce tables from logfood..."
+    @echo "Run this manually on logfood SQL Editor:"
+    @echo "  sql/sync/00_export_raw_tables.sql"
+
+# === METRIC VIEWS ===
+
+# Deploy all metric views
+deploy-metric-views:
+    @echo "Deploying metric views..."
+    for f in sql/metric-views/*.sql
+        echo "  Deploying $f..."
+        databricks sql execute -f $f \
+            --var "catalog={{catalog}}" \
+            --var "schema={{schema}}"
+    end
+    @echo "✓ Metric views deployed"
+
+# Deploy a specific metric view
+deploy-mv name:
+    @echo "Deploying {{name}}..."
+    databricks sql execute -f sql/metric-views/{{name}}.sql \
+        --var "catalog={{catalog}}" \
+        --var "schema={{schema}}"
+    @echo "✓ {{name}} deployed"
+
+# Describe a metric view
+describe-mv name:
+    databricks sql execute -q "DESCRIBE EXTENDED {{catalog}}.{{schema}}.{{name}}"
+
+# Query metric view with BU filter
+query-mv-bu name bu="CAN":
+    databricks sql execute -q "SELECT * FROM {{catalog}}.{{schema}}.{{name}} WHERE \`Business Unit\` = '{{bu}}' LIMIT 100"
+
+# Query metric view aggregated by BU
+query-mv-all name:
+    databricks sql execute -q "SELECT \`Business Unit\`, COUNT(1) AS cnt FROM {{catalog}}.{{schema}}.{{name}} GROUP BY ALL"
+
+# === METRIC VIEW TESTING ===
+
+# Run all metric view validation tests
+test-metric-views:
+    @echo "Running metric view validation tests..."
+    @echo "  Testing on logfood workspace..."
+    databricks sql execute -f sql/tests/validate_metric_views.sql -p logfood
+    @echo "✓ Metric view tests complete"
+
+# Run data quality tests
+test-data-quality:
+    @echo "Running data quality tests..."
+    databricks sql execute -f sql/tests/validate_data_quality.sql -p logfood
+    @echo "✓ Data quality tests complete"
+
+# Run cross-BU consistency tests
+test-cross-bu:
+    @echo "Running cross-BU consistency tests..."
+    databricks sql execute -f sql/tests/validate_cross_bu.sql -p logfood
+    @echo "✓ Cross-BU tests complete"
+
+# Run performance benchmarks
+test-performance:
+    @echo "Running performance benchmarks..."
+    @echo "  Check query profile for execution times"
+    databricks sql execute -f sql/tests/benchmark_performance.sql -p logfood
+    @echo "✓ Performance benchmarks complete"
+
+# Run all validation tests
+test-all: test-metric-views test-data-quality test-cross-bu
+    @echo "✓ All validation tests complete"
+
+# === MATERIALIZATION ===
+
+# Default warehouse ID for materialization
+warehouse_id := "your-warehouse-id"
+
+# Enable materialization on all metric views
+enable-materialization:
+    @echo "Enabling materialization on metric views..."
+    databricks sql execute -f sql/metric-views/materialization_config.sql \
+        --var "catalog={{catalog}}" \
+        --var "schema={{schema}}" \
+        --var "warehouse_id={{warehouse_id}}"
+    @echo "✓ Materialization enabled"
+
+# Check materialization status
+materialization-status:
+    @echo "Materialization status:"
+    databricks sql execute -q "SELECT table_name, comment \
+        FROM {{catalog}}.information_schema.tables \
+        WHERE table_schema = '{{schema}}' AND table_name LIKE 'mv_%' \
+        ORDER BY table_name"
+
+# Trigger refresh of a specific metric view
+refresh-mv name:
+    @echo "Refreshing {{name}}..."
+    databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.{{name}}"
+    @echo "✓ Refresh triggered"
+
+# Refresh all core metric views
+refresh-all-mv:
+    @echo "Refreshing all metric views..."
+    databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_asq_operations"
+    databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_sla_compliance"
+    databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_effort_capacity"
+    @echo "✓ Core metric views refreshed"
+
+# === DAB WORKFLOWS ===
+
+# Deploy metric view workflows via DAB
+dab-deploy-metric-views:
+    @echo "Deploying metric view workflows via DAB..."
+    databricks bundle deploy -t dev
+    @echo "✓ DAB deployment complete"
+
+# Run metric view deployment job via DAB
+dab-run-deploy:
+    @echo "Running metric view deployment job..."
+    databricks bundle run -t dev ssa_metric_view_deploy
+    @echo "✓ Deployment job triggered"
+
+# Run metric view validation job via DAB
+dab-run-validation:
+    @echo "Running metric view validation job..."
+    databricks bundle run -t dev ssa_metric_view_validation
+    @echo "✓ Validation job triggered"
+
+# Run performance benchmark job via DAB
+dab-run-benchmarks:
+    @echo "Running performance benchmark job..."
+    databricks bundle run -t dev ssa_metric_view_performance
+    @echo "✓ Benchmark job triggered"
+
+# Show DAB job status
+dab-status:
+    databricks bundle summary -t dev | grep -A 50 "Jobs:"
+
+# === VALIDATION (Dimensional Model) ===
+
+# Validate dimensional model
+validate-dims:
+    @echo "Validating dimensional model..."
+    databricks sql execute -q "SELECT 'dim_date' AS tbl, COUNT(*) FROM {{catalog}}.{{schema}}.dim_date"
+    databricks sql execute -q "SELECT 'dim_ssa' AS tbl, COUNT(*) FROM {{catalog}}.{{schema}}.dim_ssa"
+    databricks sql execute -q "SELECT 'dim_account' AS tbl, COUNT(*) FROM {{catalog}}.{{schema}}.dim_account"
+    databricks sql execute -q "SELECT 'fact_asq' AS tbl, COUNT(*) FROM {{catalog}}.{{schema}}.fact_asq"
+    @echo "✓ Validation complete"
+
+# Check hierarchy distribution
+check-hierarchy:
+    @echo "SSA hierarchy distribution:"
+    databricks sql execute -q "SELECT business_unit, COUNT(*) FROM {{catalog}}.{{schema}}.dim_ssa WHERE is_active GROUP BY business_unit ORDER BY 2 DESC"
+
+# Check SLA compliance rates
+check-sla:
+    @echo "SLA compliance rates:"
+    databricks sql execute -q "SELECT \
+        COUNT(*) AS total, \
+        SUM(CASE WHEN review_sla_met THEN 1 ELSE 0 END) AS review_met, \
+        SUM(CASE WHEN assignment_sla_met THEN 1 ELSE 0 END) AS assign_met, \
+        SUM(CASE WHEN completion_sla_met THEN 1 ELSE 0 END) AS complete_met \
+        FROM {{catalog}}.{{schema}}.fact_asq"
