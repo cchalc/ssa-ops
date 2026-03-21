@@ -92,22 +92,12 @@ resources:
             warehouse_id: ${var.warehouse_id}
             file:
               path: ${workspace.file_path}/sql/metric-views/mv_asq_operations.sql
-          parameters:
-            - name: "catalog"
-              default: ${var.catalog}
-            - name: "schema"
-              default: ${var.schema}
 
         - task_key: "deploy_mv_sla_compliance"
           sql_task:
             warehouse_id: ${var.warehouse_id}
             file:
               path: ${workspace.file_path}/sql/metric-views/mv_sla_compliance.sql
-          parameters:
-            - name: "catalog"
-              default: ${var.catalog}
-            - name: "schema"
-              default: ${var.schema}
           depends_on:
             - task_key: "deploy_mv_asq_operations"
 
@@ -116,11 +106,6 @@ resources:
             warehouse_id: ${var.warehouse_id}
             file:
               path: ${workspace.file_path}/sql/metric-views/mv_effort_capacity.sql
-          parameters:
-            - name: "catalog"
-              default: ${var.catalog}
-            - name: "schema"
-              default: ${var.schema}
           depends_on:
             - task_key: "deploy_mv_sla_compliance"
 
@@ -130,11 +115,6 @@ resources:
             warehouse_id: ${var.warehouse_id}
             file:
               path: ${workspace.file_path}/sql/metric-views/mv_consumption_impact.sql
-          parameters:
-            - name: "catalog"
-              default: ${var.catalog}
-            - name: "schema"
-              default: ${var.schema}
           depends_on:
             - task_key: "deploy_mv_effort_capacity"
 
@@ -143,11 +123,6 @@ resources:
             warehouse_id: ${var.warehouse_id}
             file:
               path: ${workspace.file_path}/sql/metric-views/mv_pipeline_impact.sql
-          parameters:
-            - name: "catalog"
-              default: ${var.catalog}
-            - name: "schema"
-              default: ${var.schema}
           depends_on:
             - task_key: "deploy_mv_consumption_impact"
 
@@ -156,11 +131,6 @@ resources:
             warehouse_id: ${var.warehouse_id}
             file:
               path: ${workspace.file_path}/sql/metric-views/mv_team_comparison.sql
-          parameters:
-            - name: "catalog"
-              default: ${var.catalog}
-            - name: "schema"
-              default: ${var.schema}
           depends_on:
             - task_key: "deploy_mv_pipeline_impact"
 
@@ -169,11 +139,6 @@ resources:
             warehouse_id: ${var.warehouse_id}
             file:
               path: ${workspace.file_path}/sql/metric-views/mv_trend_analysis.sql
-          parameters:
-            - name: "catalog"
-              default: ${var.catalog}
-            - name: "schema"
-              default: ${var.schema}
           depends_on:
             - task_key: "deploy_mv_team_comparison"
 

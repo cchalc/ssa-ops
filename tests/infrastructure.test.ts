@@ -5,7 +5,11 @@ import {
   checkLakebaseHealth,
   getProjectInfo,
   getEndpoints,
+  isLakebaseAvailable,
 } from './db-utils'
+
+// Check if Lakebase is available before running tests
+const lakebaseAvailable = isLakebaseAvailable()
 
 describe('Lakebase Infrastructure', () => {
   describe('Project Configuration', () => {
@@ -63,7 +67,7 @@ describe('Lakebase Infrastructure', () => {
   })
 })
 
-describe('Database Connectivity', () => {
+describe.skipIf(!lakebaseAvailable)('Database Connectivity', () => {
   let pool: Pool
 
   beforeAll(() => {
@@ -113,7 +117,7 @@ describe('Database Connectivity', () => {
   })
 })
 
-describe('Sample Data', () => {
+describe.skipIf(!lakebaseAvailable)('Sample Data', () => {
   let pool: Pool
 
   beforeAll(() => {

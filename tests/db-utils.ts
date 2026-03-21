@@ -2,6 +2,39 @@ import { execSync } from 'node:child_process'
 import { Pool } from 'pg'
 
 const PROFILE = 'fevm-cjc'
+
+/**
+ * Check if Lakebase connectivity is available
+ * Uses psql to test actual connection (more reliable than just token check)
+ * Safe to call at module load time - catches all errors
+ */
+export function isLakebaseAvailable(): boolean {
+  // Skip Lakebase tests in CI or when SKIP_LAKEBASE_TESTS is set
+  if (process.env.CI || process.env.SKIP_LAKEBASE_TESTS) {
+    return false
+  }
+
+  try {
+    // Generate token and test actual connectivity with psql
+    const token = execSync(
+      `databricks postgres generate-database-credential "${ENDPOINT_NAME}" -p ${PROFILE} --output json 2>/dev/null`,
+      { encoding: 'utf-8', timeout: 10000 }
+    )
+    const parsed = JSON.parse(token)
+
+    // Try a quick connection test with psql
+    const user = execSync(`databricks current-user me -p ${PROFILE} --output json`, { encoding: 'utf-8' })
+    const userName = JSON.parse(user).userName
+
+    execSync(
+      `PGPASSWORD="${parsed.token}" psql "host=${ENDPOINT_HOST} port=5432 user=${userName} dbname=${DATABASE_NAME} sslmode=require" -c "SELECT 1" 2>/dev/null`,
+      { encoding: 'utf-8', timeout: 15000 }
+    )
+    return true
+  } catch {
+    return false
+  }
+}
 const PROJECT_NAME = 'ssa-ops-dev'
 const DATABASE_NAME = 'ssa_ops_dev'
 const ENDPOINT_HOST = 'ep-bold-block-d8nx4viy.database.us-east-2.cloud.databricks.com'

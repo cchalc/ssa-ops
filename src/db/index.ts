@@ -1,2 +1,2 @@
 // Database collections
-export { testItemsCollection, type TestItem } from './collections/testItems'
+export { type TestItem, testItemsCollection } from "./collections/testItems";

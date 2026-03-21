@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import type { Pool } from 'pg'
-import { createPool } from './db-utils'
+import { createPool, isLakebaseAvailable } from './db-utils'
 
-describe('CRUD Operations', () => {
+// Check if Lakebase is available before running tests
+const lakebaseAvailable = isLakebaseAvailable()
+
+describe.skipIf(!lakebaseAvailable)('CRUD Operations', () => {
   let pool: Pool
   let testItemId: number | null = null
 
@@ -207,7 +210,7 @@ describe('CRUD Operations', () => {
   })
 })
 
-describe('Transaction Support', () => {
+describe.skipIf(!lakebaseAvailable)('Transaction Support', () => {
   let pool: Pool
 
   beforeAll(() => {

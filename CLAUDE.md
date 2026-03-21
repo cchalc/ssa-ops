@@ -121,9 +121,24 @@ WHERE a.snapshot_date = (SELECT MAX(snapshot_date) FROM main.gtm_silver.approval
 
 ## Environment Setup
 
-This project uses direnv. Environment is configured via:
-- `.envrc` - Sets `DATABRICKS_CONFIG_PROFILE=logfood` and loads `.env`
+This project uses direnv + uv for environment management.
+
+### Session Startup
+
+Always run at session start to ensure Python venv is active:
+
+```fish
+cd /Users/christopher.chalcraft/cowork/dev/ssa-ops
+direnv allow  # loads .envrc (sets DATABRICKS_CONFIG_PROFILE, UV_PROJECT_ENVIRONMENT)
+uv sync       # creates/updates venv at ~/.virtualenvs/ssa-ops
+```
+
+### Configuration Files
+
+- `.envrc` - Sets `DATABRICKS_CONFIG_PROFILE=fevm-cjc`, `UV_PROJECT_ENVIRONMENT`, loads `.env`
 - `.env` - Local secrets (gitignored, copy from `.env.example`)
+- `.python-version` - Python 3.12
+- `pyproject.toml` - Python dependencies managed by uv
 
 ## Stack
 
