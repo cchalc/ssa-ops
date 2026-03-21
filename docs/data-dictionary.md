@@ -23,8 +23,19 @@ This document describes all data sources, fields, and views used in the SSA Acti
 |-------|----------------|-------------|
 | `core_usecase_curated` | `main.gtm_gold` | Enriched UCO data with ARR estimates |
 | `account_product_adoption` | `main.gtm_gold` | Product adoption flags by account |
+| `rpt_account_dim` | `main.gtm_gold` | Account tiers (A+/A/B/C/Focus Account) and strategic flags |
+| `account_obt` | `main.gtm_gold` | Account financials (ARR, DBU consumption, spend_tier) |
 | `paid_usage_metering` | `main.fin_live_gold` | DBU consumption data |
 | `dim_workday_attributes_latest` | `main.metric_store` | Org hierarchy (for team filtering) |
+
+### GTM Silver Sources (Snapshot Data)
+
+| Table | Catalog.Schema | Description |
+|-------|----------------|-------------|
+| `approval_request_detail` | `main.gtm_silver` | ASQ snapshot with all fields |
+| `use_case_detail` | `main.gtm_silver` | UCO current state with stage, competitors |
+| `use_case_detail_history` | `main.gtm_silver` | UCO historical snapshots |
+| `individual_hierarchy_salesforce` | `main.gtm_silver` | Manager hierarchy (line_manager, 2nd_line_manager) |
 
 ---
 
@@ -211,4 +222,163 @@ Views are created in `home_christopher_chalcraft.cjc_views` schema.
 Required grants:
 - `SELECT` on `stitch.salesforce.*`
 - `SELECT` on `main.gtm_gold.*`
+- `SELECT` on `main.gtm_silver.*`
 - `SELECT` on `main.fin_live_gold.*` (for consumption)
+
+---
+
+## Metric Views (Databricks Native)
+
+These metric views are deployed to the fevm-cjc workspace for analytics.
+
+### mv_asq_operations
+
+Core ASQ operational metrics with 30+ measures.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Business Unit` | string | BU: AMER Enterprise & Emerging, AMER Industries, EMEA, APJ |
+| `Region` | string | Region: CAN, RCT, FINS, etc. |
+| `Owner` | string | SSA owner name |
+| `Manager L1-L5` | string | 5-level manager hierarchy |
+| `Account` | string | Customer account name |
+| `Specialization` | string | Technical focus area |
+| `Total ASQs` | int | Total ASQ count |
+| `Open ASQs` | int | Currently open ASQs |
+| `Overdue ASQs` | int | Past due date, not completed |
+| `On-Time Rate` | decimal | % completed on time |
+| `Avg Days to Complete` | decimal | Average turnaround time |
+
+### mv_focus_discipline
+
+Focus & Discipline metrics for 80% priority target (Charter Metric #9).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Account Tier` | string | A+, A, B, C, Focus Account |
+| `Is Strategic` | string | Yes/No - Strategic account flag |
+| `Is Focus Account` | string | Yes/No - Focus account flag |
+| `Priority Status` | string | Priority or Non-Priority |
+| `Total Effort Days` | decimal | Total SSA effort |
+| `Priority Effort Days` | decimal | Effort on A+/A/Focus/Strategic accounts |
+| `Priority Effort Rate` | decimal | % effort on priority accounts |
+| `Meeting 80% Goal` | int | 1 if rate >= 80%, 0 otherwise |
+
+### mv_uco_velocity
+
+UCO stage velocity for Time-to-Production (Charter Metric #3).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `UCO Stage` | string | U1-U6, Lost, Disqualified |
+| `Stage Category` | string | Early, Engaged, Tech Win, Production, Go Live, Lost |
+| `Avg Days in Stage` | decimal | Average days in current stage (days_in_stage) |
+| `Production Rate` | decimal | % UCOs reaching U5+ |
+| `Stalled UCOs` | int | UCOs with >30 days in stage |
+| `Production+ UCOs` | int | UCOs at U5 or U6 |
+| `Loss Rate` | decimal | % UCOs that reached Lost stage |
+
+### mv_competitive_analysis
+
+Competitive win/loss analysis (Charter Metric #2).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Competitor` | string | competitors field (may have multiple, semicolon-separated) |
+| `Competitor Category` | string | Microsoft Fabric, Snowflake, AWS, Google BigQuery, etc. |
+| `Competitor Type` | string | Microsoft, Snowflake, AWS, Google Cloud, Other, No Competitor |
+| `Win Rate` | decimal | U6 (Live) / (U6 + Lost) |
+| `Competitive Win Rate` | decimal | Win rate on deals with competitor |
+| `Microsoft Displacement Wins` | int | Wins against Fabric/Synapse/Power BI |
+| `Snowflake Displacement Wins` | int | Wins against Snowflake |
+
+### mv_pipeline_impact
+
+UCO linkage & pipeline generation.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `UCO Stage` | string | UCO pipeline stage |
+| `Linked ASQs` | int | ASQs linked to UCOs |
+| `Linkage Rate` | decimal | % ASQs with UCO linkage |
+| `Total Pipeline` | decimal | Total UCO pipeline amount |
+| `Production Pipeline` | decimal | Pipeline at U5+U6 |
+| `Won Pipeline` | decimal | Pipeline from won UCOs |
+| `Pipeline per Effort Day` | decimal | Efficiency metric |
+
+---
+
+## Account Segmentation
+
+### Account Tiers (from rpt_account_dim)
+
+| Tier | Description | Priority |
+|------|-------------|----------|
+| A+ | Top strategic accounts | Yes |
+| A | Strategic accounts | Yes |
+| Focus Account | BU-prioritized focus accounts | Yes |
+| Focus Account - HLS | Healthcare focus accounts | Yes |
+| Focus Account - Retail | Retail focus accounts | Yes |
+| B | Important accounts | No |
+| C | Standard accounts | No |
+
+### Strategic Account Flag
+
+Accounts with `is_strategic_account_ind = TRUE` are also considered priority accounts, regardless of tier.
+
+### Focus Account Flag
+
+Accounts with `is_focus_account_ind = TRUE` or `account_tier LIKE 'Focus Account%'`.
+
+### Priority Account Definition
+
+An account is "priority" if ANY of these are true:
+- `account_tier IN ('A+', 'A')`
+- `account_tier LIKE 'Focus Account%'`
+- `is_strategic_account_ind = TRUE`
+
+### Spend Tiers (from account_obt)
+
+| Spend Tier | Description |
+|------------|-------------|
+| Scaling | High-spend, scaling accounts |
+| Ramping | Growing consumption |
+| Greenfield Prospect | New prospect |
+| Greenfield PAYG | Pay-as-you-go greenfield |
+
+---
+
+## UCO Stages
+
+| Stage | Description | Milestone |
+|-------|-------------|-----------|
+| U1 | Use case identified | - |
+| U2 | Being qualified | - |
+| U3 | SSA actively engaged | SSA Engagement |
+| U4 | Technical validation | Tech Win |
+| U5 | Moving to production | Production |
+| U6 | In production | Go Live / Win |
+| Lost | Deal lost | Loss |
+| Disqualified | Disqualified from pipeline | - |
+
+### Key Fields
+
+- **stage:** Current UCO stage (U1-U6, Lost, Disqualified)
+- **days_in_stage:** Days in current stage
+- **days_in_pipeline:** Total days in pipeline
+- **stuck_in_stage:** Boolean flag for stalled UCOs
+- **competitors:** Competitor information (may be semicolon-separated)
+- **implementation_status:** Green, Yellow, Red
+
+### Key Milestones
+
+- **Tech Win (U4):** Technical decision made in favor of Databricks
+- **Production (U5):** Customer implementing in production
+- **Go Live (U6):** Use case fully operational (counts as "Win")
+- **Loss:** Lost stage indicates lost deal (for win rate calculation)
+
+---
+
+## Charter Metrics Reference
+
+See [charter-metrics.md](./charter-metrics.md) for full charter metric implementation details.

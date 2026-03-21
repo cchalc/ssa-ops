@@ -188,8 +188,115 @@ databricks bundle deploy -t dev
 | Delta → Lakebase | JDBC | OAuth | 5-15s |
 | App → Lakebase | PostgreSQL | OAuth token | <100ms |
 
+## Metric Views Architecture
+
+In addition to the SQL views synced to Delta/Lakebase, the system uses **Databricks Metric Views** for native aggregation analytics.
+
+```mermaid
+flowchart LR
+    subgraph sources["GTM SOURCES (logfood)"]
+        direction TB
+        silver["main.gtm_silver<br/>• approval_request_detail<br/>• use_case_detail<br/>• individual_hierarchy_field"]
+        gold["main.gtm_gold<br/>• account_obt<br/>• account_segmentation<br/>• core_usecase_curated"]
+    end
+
+    subgraph mv["METRIC VIEWS (fevm-cjc)"]
+        direction TB
+        core["Core Metrics<br/>• mv_asq_operations<br/>• mv_sla_compliance<br/>• mv_effort_capacity"]
+        charter["Charter Metrics<br/>• mv_focus_discipline<br/>• mv_uco_velocity<br/>• mv_competitive_analysis"]
+        impact["Impact Metrics<br/>• mv_pipeline_impact<br/>• mv_consumption_impact<br/>• mv_team_comparison"]
+    end
+
+    silver --> core
+    silver --> charter
+    silver --> impact
+    gold --> core
+    gold --> charter
+    gold --> impact
+
+    style sources fill:#e3f2fd,stroke:#1976d2
+    style mv fill:#fff3e0,stroke:#f57c00
+```
+
+### Charter Metrics Implementation
+
+| Charter # | Metric | Metric View | Key Measures |
+|-----------|--------|-------------|--------------|
+| 1 | ARR Influenced | `mv_pipeline_impact` | Production Pipeline, Production ARR |
+| 2 | Competitive Win Rate | `mv_competitive_analysis` | Win Rate, Competitive Win Rate, Microsoft Displacement |
+| 3 | Time-to-Production | `mv_uco_velocity` | Production Rate, Avg Days in Stage, Stalled UCOs |
+| 9 | Focus & Discipline | `mv_focus_discipline` | Priority Effort Rate, Meeting 80% Goal |
+
+### Dimensional Model
+
+```mermaid
+erDiagram
+    dim_date ||--o{ fact_asq : "created_date_key"
+    dim_date ||--o{ fact_asq : "completion_date_key"
+    dim_ssa ||--o{ fact_asq : "owner_id"
+    dim_account ||--o{ fact_asq : "account_id"
+    dim_account ||--o{ fact_uco : "account_id"
+
+    dim_date {
+        int date_key PK
+        date calendar_date
+        int cal_year
+        int cal_quarter
+        int fy_year
+        int fy_quarter
+    }
+
+    dim_ssa {
+        string ssa_id PK
+        string ssa_name
+        string level_1_manager
+        string level_2_manager
+        string business_unit
+        string region
+        boolean is_active
+    }
+
+    dim_account {
+        string account_id PK
+        string account_name
+        string segment
+        string account_tier
+        boolean is_bu_plus_one
+        boolean is_priority_account
+        decimal arr
+    }
+
+    fact_asq {
+        string asq_id PK
+        string owner_id FK
+        string account_id FK
+        int created_date_key FK
+        int completion_date_key FK
+        string status
+        decimal estimated_effort_days
+        decimal actual_effort_days
+        boolean review_sla_met
+        boolean assignment_sla_met
+        boolean completion_sla_met
+    }
+
+    fact_uco {
+        string uco_id PK
+        string account_id FK
+        string stage
+        string status
+        string competitor_status
+        string competitor_category
+        int current_stage_days_count
+        decimal estimated_arr
+        boolean is_competitive
+        boolean is_won
+    }
+```
+
 ## Related Documentation
 
+- [charter-metrics.md](charter-metrics.md) - Charter metric implementation details
 - [metrics-tree.md](metrics-tree.md) - View to KPI mapping
 - [data-dictionary.md](data-dictionary.md) - Field definitions
 - [testing.md](testing.md) - Test suite documentation

@@ -46,6 +46,13 @@ CREATE OR REPLACE TABLE ${catalog}.${schema}.dim_account (
   has_workflows BOOLEAN,
   has_delta_sharing BOOLEAN,
 
+  -- Account Segmentation (for Focus & Discipline metrics)
+  account_tier STRING COMMENT 'Account tier: A+, A, B, C, Focus Account',
+  is_strategic_account BOOLEAN COMMENT 'Strategic account flag (is_strategic_account_ind)',
+  is_focus_account BOOLEAN COMMENT 'Focus account flag (is_focus_account_ind)',
+  is_priority_account BOOLEAN COMMENT 'Priority account: A+/A tier, Focus Account, or Strategic',
+  bu_top_accounts STRING COMMENT 'BU top accounts designation',
+
   -- Adoption scores
   ai_ml_score DECIMAL(5,2),
   modern_platform_score DECIMAL(5,2),
@@ -137,6 +144,18 @@ WITH account_data AS (
     COALESCE(a.Has_Workflows__c, FALSE) AS has_workflows,
     COALESCE(a.Has_Delta_Sharing__c, FALSE) AS has_delta_sharing,
 
+    -- Account Segmentation (from GTM Gold rpt_account_dim)
+    acct.account_tier AS account_tier,
+    COALESCE(acct.is_strategic_account_ind, FALSE) AS is_strategic_account,
+    COALESCE(acct.is_focus_account_ind, FALSE) AS is_focus_account,
+    CASE
+      WHEN acct.account_tier IN ('A+', 'A')
+        OR acct.account_tier LIKE 'Focus Account%'
+        OR acct.is_strategic_account_ind = TRUE
+      THEN TRUE ELSE FALSE
+    END AS is_priority_account,
+    acct.bu_top_accounts AS bu_top_accounts,
+
     -- Scores (calculate from flags or use existing fields)
     CAST(NULL AS DECIMAL(5,2)) AS ai_ml_score,
     CAST(NULL AS DECIMAL(5,2)) AS modern_platform_score,
@@ -175,6 +194,8 @@ WITH account_data AS (
   LEFT JOIN ${source_catalog}.${source_schema}.sf_user ae ON a.OwnerId = ae.Id
   LEFT JOIN ${source_catalog}.${source_schema}.sf_user rae ON a.Regional_AE__c = rae.Id
   LEFT JOIN ${source_catalog}.${source_schema}.sf_user csm ON a.CSM__c = csm.Id
+  -- Join to GTM Gold for account segmentation (A+/A/B/C tiers, Focus Account, Strategic)
+  LEFT JOIN main.gtm_gold.rpt_account_dim acct ON a.Id = acct.account_id
 )
 
 -- Merge into dim_account
@@ -209,6 +230,11 @@ WHEN MATCHED THEN UPDATE SET
   target.has_dlt = source.has_dlt,
   target.has_workflows = source.has_workflows,
   target.has_delta_sharing = source.has_delta_sharing,
+  target.account_tier = source.account_tier,
+  target.is_strategic_account = source.is_strategic_account,
+  target.is_focus_account = source.is_focus_account,
+  target.is_priority_account = source.is_priority_account,
+  target.bu_top_accounts = source.bu_top_accounts,
   target.adoption_tier = source.adoption_tier,
   target.maturity_stage = source.maturity_stage,
   target.arr = source.arr,
@@ -227,6 +253,7 @@ WHEN NOT MATCHED THEN INSERT (
   has_unity_catalog, has_serverless_sql, has_serverless_compute,
   has_model_serving, has_feature_store, has_mlflow, has_vector_search,
   has_mosaic_ai, has_dlt, has_workflows, has_delta_sharing,
+  account_tier, is_strategic_account, is_focus_account, is_priority_account, bu_top_accounts,
   ai_ml_score, modern_platform_score, data_engineering_score,
   adoption_tier, maturity_stage,
   arr, arr_band, dbu_consumption_monthly, dbu_consumption_band,
@@ -240,6 +267,7 @@ WHEN NOT MATCHED THEN INSERT (
   source.has_unity_catalog, source.has_serverless_sql, source.has_serverless_compute,
   source.has_model_serving, source.has_feature_store, source.has_mlflow, source.has_vector_search,
   source.has_mosaic_ai, source.has_dlt, source.has_workflows, source.has_delta_sharing,
+  source.account_tier, source.is_strategic_account, source.is_focus_account, source.is_priority_account, source.bu_top_accounts,
   source.ai_ml_score, source.modern_platform_score, source.data_engineering_score,
   source.adoption_tier, source.maturity_stage,
   source.arr, source.arr_band, source.dbu_consumption_monthly, source.dbu_consumption_band,

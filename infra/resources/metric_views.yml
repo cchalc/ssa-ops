@@ -142,6 +142,31 @@ resources:
           depends_on:
             - task_key: "deploy_mv_team_comparison"
 
+        # Charter metrics views
+        - task_key: "deploy_mv_focus_discipline"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_focus_discipline.sql
+          depends_on:
+            - task_key: "deploy_mv_trend_analysis"
+
+        - task_key: "deploy_mv_uco_velocity"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_uco_velocity.sql
+          depends_on:
+            - task_key: "deploy_mv_focus_discipline"
+
+        - task_key: "deploy_mv_competitive_analysis"
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ${workspace.file_path}/sql/metric-views/mv_competitive_analysis.sql
+          depends_on:
+            - task_key: "deploy_mv_uco_velocity"
+
       email_notifications:
         on_failure:
           - "christopher.chalcraft@databricks.com"

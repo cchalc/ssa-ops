@@ -25,6 +25,17 @@ CREATE OR REPLACE TABLE ${catalog}.${schema}.fact_uco (
   is_open BOOLEAN,
   is_won BOOLEAN,
 
+  -- Velocity Tracking (for Time-to-Production metrics)
+  days_in_stage INT COMMENT 'Days in current stage',
+  days_in_pipeline INT COMMENT 'Total days in pipeline',
+  stuck_in_stage BOOLEAN COMMENT 'Flag indicating UCO is stuck',
+  last_stage_modified_date TIMESTAMP COMMENT 'When stage last changed',
+
+  -- Competitive Tracking (for Win Rate metrics)
+  competitors STRING COMMENT 'Competitor information (may contain multiple, semicolon-separated)',
+  competitor_category STRING COMMENT 'Normalized: Microsoft, Snowflake, AWS, Google Cloud, Other',
+  is_competitive BOOLEAN COMMENT 'Has competitor involvement (competitors != No Competitor)',
+
   -- Financials
   estimated_dbus DECIMAL(15,2),
   estimated_arr DECIMAL(15,2),
@@ -92,6 +103,26 @@ WITH uco_data AS (
     u.Stage__c AS stage,
     u.Status__c IN ('Open', 'In Progress', 'Pending') AS is_open,
     u.Status__c = 'Won' AS is_won,
+
+    -- Velocity Tracking
+    COALESCE(u.days_in_stage, 0) AS days_in_stage,
+    COALESCE(u.days_in_pipeline, 0) AS days_in_pipeline,
+    COALESCE(u.stuck_in_stage, FALSE) AS stuck_in_stage,
+    u.last_stage_modified_date AS last_stage_modified_date,
+
+    -- Competitive Tracking
+    u.competitors AS competitors,
+    CASE
+      WHEN u.competitors LIKE '%Microsoft Fabric%' OR u.competitors LIKE '%Azure Synapse%'
+        OR u.competitors LIKE '%Microsoft Power BI%' OR u.competitors LIKE '%Azure%'
+        THEN 'Microsoft'
+      WHEN u.competitors LIKE '%Snowflake%' THEN 'Snowflake'
+      WHEN u.competitors LIKE '%AWS%' OR u.competitors LIKE '%Redshift%' THEN 'AWS'
+      WHEN u.competitors LIKE '%Google%' OR u.competitors LIKE '%BigQuery%' THEN 'Google Cloud'
+      WHEN u.competitors IS NULL OR u.competitors = '' OR u.competitors = 'No Competitor' THEN NULL
+      ELSE 'Other'
+    END AS competitor_category,
+    CASE WHEN u.competitors IS NOT NULL AND u.competitors != '' AND u.competitors != 'No Competitor' THEN TRUE ELSE FALSE END AS is_competitive,
 
     -- Financials
     COALESCE(u.Estimated_DBUs__c, 0) AS estimated_dbus,
@@ -165,6 +196,13 @@ WHEN MATCHED THEN UPDATE SET
   target.stage = source.stage,
   target.is_open = source.is_open,
   target.is_won = source.is_won,
+  target.days_in_stage = source.days_in_stage,
+  target.days_in_pipeline = source.days_in_pipeline,
+  target.stuck_in_stage = source.stuck_in_stage,
+  target.last_stage_modified_date = source.last_stage_modified_date,
+  target.competitors = source.competitors,
+  target.competitor_category = source.competitor_category,
+  target.is_competitive = source.is_competitive,
   target.estimated_dbus = source.estimated_dbus,
   target.estimated_arr = source.estimated_arr,
   target.weighted_arr = source.weighted_arr,
@@ -190,6 +228,8 @@ WHEN NOT MATCHED THEN INSERT (
   uco_id, uco_name, uco_number,
   account_id, owner_id, opportunity_id,
   status, stage, is_open, is_won,
+  days_in_stage, days_in_pipeline, stuck_in_stage, last_stage_modified_date,
+  competitors, competitor_category, is_competitive,
   estimated_dbus, estimated_arr, weighted_arr, probability_pct,
   created_date, close_date, expected_close_date, won_date,
   use_case_type, product_category, workload_type,
@@ -201,6 +241,8 @@ WHEN NOT MATCHED THEN INSERT (
   source.uco_id, source.uco_name, source.uco_number,
   source.account_id, source.owner_id, source.opportunity_id,
   source.status, source.stage, source.is_open, source.is_won,
+  source.days_in_stage, source.days_in_pipeline, source.stuck_in_stage, source.last_stage_modified_date,
+  source.competitors, source.competitor_category, source.is_competitive,
   source.estimated_dbus, source.estimated_arr, source.weighted_arr, source.probability_pct,
   source.created_date, source.close_date, source.expected_close_date, source.won_date,
   source.use_case_type, source.product_category, source.workload_type,
