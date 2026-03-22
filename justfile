@@ -304,7 +304,61 @@ refresh-all-mv:
     databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_asq_operations"
     databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_sla_compliance"
     databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_effort_capacity"
+    databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_focus_discipline"
+    databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_uco_velocity"
+    databricks sql execute -q "REFRESH METRIC VIEW {{catalog}}.{{schema}}.mv_competitive_analysis"
     @echo "✓ Core metric views refreshed"
+
+# === CHARTER METRICS ===
+
+# Check focus discipline (80% L400+ target)
+check-focus-discipline manager="Christopher Chalcraft":
+    @echo "Focus & Discipline for {{manager}}:"
+    databricks sql execute -q "SELECT \`Owner\`, \
+        SUM(MEASURE(\`Total Effort Days\`)) AS total_effort, \
+        SUM(MEASURE(\`Priority Effort Days\`)) AS priority_effort, \
+        AVG(MEASURE(\`Priority Effort Rate\`)) AS priority_rate, \
+        SUM(MEASURE(\`Meeting 80% Goal\`)) AS meeting_goal \
+        FROM {{catalog}}.{{schema}}.mv_focus_discipline \
+        WHERE \`Manager L1\` = '{{manager}}' \
+        GROUP BY \`Owner\` ORDER BY priority_rate DESC"
+
+# Check UCO velocity (time-to-production)
+check-uco-velocity manager="Christopher Chalcraft":
+    @echo "UCO Velocity for {{manager}}:"
+    databricks sql execute -q "SELECT \`Owner\`, \
+        SUM(MEASURE(\`Total UCOs\`)) AS total_ucos, \
+        SUM(MEASURE(\`Production+ UCOs\`)) AS production_ucos, \
+        AVG(MEASURE(\`Production Rate\`)) AS production_rate, \
+        AVG(MEASURE(\`Avg Days in Stage\`)) AS avg_days \
+        FROM {{catalog}}.{{schema}}.mv_uco_velocity \
+        WHERE \`Manager L1\` = '{{manager}}' \
+        GROUP BY \`Owner\` ORDER BY production_rate DESC"
+
+# Check competitive win rate
+check-competitive-win-rate manager="Christopher Chalcraft":
+    @echo "Competitive Win Rate for {{manager}}:"
+    databricks sql execute -q "SELECT \`Owner\`, \
+        SUM(MEASURE(\`Total Closed UCOs\`)) AS total_closed, \
+        SUM(MEASURE(\`Won UCOs\`)) AS won, \
+        AVG(MEASURE(\`Win Rate\`)) AS win_rate, \
+        AVG(MEASURE(\`Competitive Win Rate\`)) AS competitive_win_rate \
+        FROM {{catalog}}.{{schema}}.mv_competitive_analysis \
+        WHERE \`Manager L1\` = '{{manager}}' \
+        GROUP BY \`Owner\` ORDER BY win_rate DESC"
+
+# Charter metrics summary
+check-charter-metrics manager="Christopher Chalcraft":
+    @echo "=== CHARTER METRICS SUMMARY for {{manager}} ==="
+    @echo ""
+    @echo "📊 Focus & Discipline (80% L400+ Target):"
+    @just check-focus-discipline "{{manager}}"
+    @echo ""
+    @echo "🚀 UCO Velocity (Time-to-Production):"
+    @just check-uco-velocity "{{manager}}"
+    @echo ""
+    @echo "🏆 Competitive Win Rate:"
+    @just check-competitive-win-rate "{{manager}}"
 
 # === DAB WORKFLOWS ===
 

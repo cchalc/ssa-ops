@@ -93,7 +93,7 @@ FROM (
     COUNT(DISTINCT CASE WHEN hier.user_id IS NOT NULL THEN asq.owner_user_id END) * 1.0
       / NULLIF(COUNT(DISTINCT asq.owner_user_id), 0) AS matched_pct
   FROM main.gtm_silver.approval_request_detail asq
-  LEFT JOIN main.gtm_silver.individual_hierarchy_field hier
+  LEFT JOIN main.gtm_silver.individual_hierarchy_salesforce hier
     ON asq.owner_user_id = hier.user_id
   WHERE asq.snapshot_date = (SELECT MAX(snapshot_date) FROM main.gtm_silver.approval_request_detail)
 );
@@ -293,9 +293,198 @@ SELECT
   'L1 managers without L2 hierarchy' AS description
 FROM (
   SELECT
-    COUNT(DISTINCT manager_level_1_name) AS total_l1_managers,
-    COUNT(DISTINCT manager_level_1_name) FILTER (WHERE manager_level_2_name IS NULL) AS orphan_managers
-  FROM main.gtm_silver.individual_hierarchy_field
+    COUNT(DISTINCT line_manager_name) AS total_l1_managers,
+    COUNT(DISTINCT line_manager_name) FILTER (WHERE `2nd_line_manager_name` IS NULL) AS orphan_managers
+  FROM main.gtm_silver.individual_hierarchy_salesforce
+);
+
+-- ============================================================================
+-- TEST 12: Account Segmentation Join (Focus & Discipline)
+-- ============================================================================
+-- Validate account segmentation data availability for priority account tracking
+
+SELECT
+  'Account Segmentation Coverage' AS test_name,
+  CASE WHEN matched_pct >= 0.80 THEN 'PASS' ELSE 'WARN' END AS result,
+  ROUND(matched_pct * 100, 2) AS match_percentage,
+  total_accounts,
+  matched_accounts,
+  accounts_with_tier
+FROM (
+  SELECT
+    COUNT(DISTINCT asq.account_id) AS total_accounts,
+    COUNT(DISTINCT CASE WHEN acct.account_id IS NOT NULL THEN asq.account_id END) AS matched_accounts,
+    COUNT(DISTINCT CASE WHEN acct.account_tier IS NOT NULL THEN asq.account_id END) AS accounts_with_tier,
+    COUNT(DISTINCT CASE WHEN acct.account_id IS NOT NULL THEN asq.account_id END) * 1.0
+      / NULLIF(COUNT(DISTINCT asq.account_id), 0) AS matched_pct
+  FROM main.gtm_silver.approval_request_detail asq
+  LEFT JOIN main.gtm_gold.rpt_account_dim acct
+    ON asq.account_id = acct.account_id
+  WHERE asq.snapshot_date = (SELECT MAX(snapshot_date) FROM main.gtm_silver.approval_request_detail)
+);
+
+-- ============================================================================
+-- TEST 13: Account Tier Distribution
+-- ============================================================================
+-- Validate A+/A/B/C/Focus Account tier distribution
+
+SELECT
+  'Account Tier Distribution' AS test_name,
+  CASE WHEN priority_pct > 0 THEN 'PASS' ELSE 'WARN' END AS result,
+  ROUND(priority_pct * 100, 2) AS priority_percentage,
+  total_with_tier,
+  a_plus_count,
+  a_count,
+  b_count,
+  c_count,
+  focus_account_count
+FROM (
+  SELECT
+    COUNT(DISTINCT account_id) AS total_with_tier,
+    COUNT(DISTINCT account_id) FILTER (WHERE account_tier = 'A+') AS a_plus_count,
+    COUNT(DISTINCT account_id) FILTER (WHERE account_tier = 'A') AS a_count,
+    COUNT(DISTINCT account_id) FILTER (WHERE account_tier = 'B') AS b_count,
+    COUNT(DISTINCT account_id) FILTER (WHERE account_tier = 'C') AS c_count,
+    COUNT(DISTINCT account_id) FILTER (WHERE account_tier LIKE 'Focus Account%') AS focus_account_count,
+    COUNT(DISTINCT account_id) FILTER (WHERE account_tier IN ('A+', 'A') OR account_tier LIKE 'Focus Account%') * 1.0
+      / NULLIF(COUNT(DISTINCT account_id), 0) AS priority_pct
+  FROM main.gtm_gold.rpt_account_dim
+  WHERE account_tier IS NOT NULL
+);
+
+-- ============================================================================
+-- TEST 14: UCO Data Availability (Velocity & Competitive)
+-- ============================================================================
+-- Validate UCO data for velocity and competitive tracking
+
+SELECT
+  'UCO Data Availability' AS test_name,
+  CASE WHEN uco_count > 0 THEN 'PASS' ELSE 'FAIL' END AS result,
+  uco_count,
+  with_stage_count,
+  with_competitor_count,
+  with_days_in_stage
+FROM (
+  SELECT
+    COUNT(DISTINCT usecase_id) AS uco_count,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage IS NOT NULL) AS with_stage_count,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE competitors IS NOT NULL AND competitors != '' AND competitors != 'No Competitor') AS with_competitor_count,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE days_in_stage IS NOT NULL) AS with_days_in_stage
+  FROM main.gtm_silver.use_case_detail
+);
+
+-- ============================================================================
+-- TEST 15: ASQ-UCO Linkage Rate
+-- ============================================================================
+-- Validate ASQ-UCO linkage for pipeline impact metrics
+
+SELECT
+  'ASQ-UCO Linkage Rate' AS test_name,
+  CASE WHEN linkage_rate >= 0.50 THEN 'PASS' ELSE 'WARN' END AS result,
+  ROUND(linkage_rate * 100, 2) AS linkage_percentage,
+  total_asqs,
+  asqs_with_uco_linkage,
+  unique_linked_ucos
+FROM (
+  SELECT
+    COUNT(DISTINCT asq.approval_request_id) AS total_asqs,
+    COUNT(DISTINCT CASE WHEN uco.usecase_id IS NOT NULL THEN asq.approval_request_id END) AS asqs_with_uco_linkage,
+    COUNT(DISTINCT uco.usecase_id) AS unique_linked_ucos,
+    COUNT(DISTINCT CASE WHEN uco.usecase_id IS NOT NULL THEN asq.approval_request_id END) * 1.0
+      / NULLIF(COUNT(DISTINCT asq.approval_request_id), 0) AS linkage_rate
+  FROM main.gtm_silver.approval_request_detail asq
+  LEFT JOIN main.gtm_silver.use_case_detail uco
+    ON asq.account_id = uco.account_id
+  WHERE asq.snapshot_date = (SELECT MAX(snapshot_date) FROM main.gtm_silver.approval_request_detail)
+);
+
+-- ============================================================================
+-- TEST 16: UCO Stage Distribution
+-- ============================================================================
+-- Validate UCO stages for velocity tracking (U1-U6, Lost, Disqualified)
+
+SELECT
+  'UCO Stage Distribution' AS test_name,
+  CASE WHEN production_plus_pct > 0 THEN 'PASS' ELSE 'WARN' END AS result,
+  total_ucos,
+  u1_u2_early,
+  u3_scoping,
+  u4_confirming,
+  u5_onboarding,
+  u6_live,
+  lost_count,
+  ROUND(production_plus_pct * 100, 2) AS production_plus_percentage
+FROM (
+  SELECT
+    COUNT(DISTINCT usecase_id) AS total_ucos,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage IN ('U1', 'U2')) AS u1_u2_early,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage = 'U3') AS u3_scoping,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage = 'U4') AS u4_confirming,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage = 'U5') AS u5_onboarding,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage = 'U6') AS u6_live,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage = 'Lost') AS lost_count,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage IN ('U5', 'U6')) * 1.0
+      / NULLIF(COUNT(DISTINCT usecase_id), 0) AS production_plus_pct
+  FROM main.gtm_silver.use_case_detail
+);
+
+-- ============================================================================
+-- TEST 17: Competitive Win/Loss Data
+-- ============================================================================
+-- Validate win/loss tracking data for competitive analysis
+-- Win = stage U6 (Live), Loss = stage Lost
+
+SELECT
+  'Competitive Win/Loss Data' AS test_name,
+  CASE WHEN total_resolved > 0 AND win_rate BETWEEN 0.3 AND 0.9 THEN 'PASS' ELSE 'WARN' END AS result,
+  total_resolved,
+  won_count,
+  lost_count,
+  ROUND(win_rate * 100, 2) AS win_rate_pct,
+  competitive_count,
+  competitive_won
+FROM (
+  SELECT
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage IN ('U6', 'Lost')) AS total_resolved,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage = 'U6') AS won_count,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage = 'Lost') AS lost_count,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE stage = 'U6') * 1.0
+      / NULLIF(COUNT(DISTINCT usecase_id) FILTER (WHERE stage IN ('U6', 'Lost')), 0) AS win_rate,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE competitors IS NOT NULL AND competitors != '' AND competitors != 'No Competitor') AS competitive_count,
+    COUNT(DISTINCT usecase_id) FILTER (WHERE competitors IS NOT NULL AND competitors != '' AND competitors != 'No Competitor'
+                                          AND stage = 'U6') AS competitive_won
+  FROM main.gtm_silver.use_case_detail
+);
+
+-- ============================================================================
+-- TEST 18: Focus & Discipline - Priority Effort
+-- ============================================================================
+-- Validate that we can calculate priority effort rates
+-- Priority = A+/A tier, Focus Account, or Strategic Account
+
+SELECT
+  'Focus & Discipline Data Quality' AS test_name,
+  CASE WHEN priority_effort_rate > 0 THEN 'PASS' ELSE 'WARN' END AS result,
+  total_asqs,
+  priority_asqs,
+  ROUND(priority_effort_rate * 100, 2) AS priority_effort_rate_pct,
+  total_effort_days,
+  priority_effort_days
+FROM (
+  SELECT
+    COUNT(*) AS total_asqs,
+    COUNT(*) FILTER (WHERE acct.account_tier IN ('A+', 'A') OR acct.account_tier LIKE 'Focus Account%' OR acct.is_strategic_account_ind = TRUE) AS priority_asqs,
+    SUM(COALESCE(asq.actual_effort_in_days, asq.estimated_effort_in_days, 5)) AS total_effort_days,
+    SUM(COALESCE(asq.actual_effort_in_days, asq.estimated_effort_in_days, 5))
+      FILTER (WHERE acct.account_tier IN ('A+', 'A') OR acct.account_tier LIKE 'Focus Account%' OR acct.is_strategic_account_ind = TRUE) AS priority_effort_days,
+    SUM(COALESCE(asq.actual_effort_in_days, asq.estimated_effort_in_days, 5))
+      FILTER (WHERE acct.account_tier IN ('A+', 'A') OR acct.account_tier LIKE 'Focus Account%' OR acct.is_strategic_account_ind = TRUE) * 1.0
+      / NULLIF(SUM(COALESCE(asq.actual_effort_in_days, asq.estimated_effort_in_days, 5)), 0) AS priority_effort_rate
+  FROM main.gtm_silver.approval_request_detail asq
+  LEFT JOIN main.gtm_gold.rpt_account_dim acct
+    ON asq.account_id = acct.account_id
+  WHERE asq.snapshot_date = (SELECT MAX(snapshot_date) FROM main.gtm_silver.approval_request_detail)
+    AND asq.status IN ('In Progress', 'Complete', 'Closed', 'Completed')
 );
 
 -- ============================================================================
@@ -308,4 +497,5 @@ SELECT
   'See individual test results above' AS result,
   CURRENT_TIMESTAMP() AS run_timestamp,
   (SELECT MAX(snapshot_date) FROM main.gtm_silver.approval_request_detail) AS asq_snapshot,
+  (SELECT COUNT(DISTINCT usecase_id) FROM main.gtm_silver.use_case_detail) AS uco_count,
   (SELECT MAX(fiscal_year_quarter) FROM main.gtm_gold.account_obt) AS account_obt_fyq;
