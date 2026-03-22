@@ -100,12 +100,48 @@ _Sync files already exist. May need updates for new fields._
 - [x] Update docs/metrics-tree.md
 - [x] Add justfile charter metric commands
 
+## Phase 6: ASQ Logfood Queries Integration
+
+### 6.1 Query Files (cjc- prefix)
+- [x] `sql/logfood/cjc-asq-evaluation.sql` - Complete ASQ evaluation with hygiene/urgency
+- [x] `sql/logfood/cjc-asq-by-manager.sql` - ASQs filtered by manager hierarchy
+- [x] `sql/logfood/cjc-asq-with-ucos.sql` - ASQs linked to UCOs
+- [x] `sql/logfood/cjc-asq-hygiene-summary.sql` - Hygiene violations by SSA
+- [x] `sql/logfood/cjc-asq-team-capacity.sql` - Team workload distribution
+- [x] `sql/logfood/cjc-uco-competitive.sql` - Competitive analysis for UCOs
+- [x] `sql/logfood/cjc-asq-region-summary.sql` - Region overview (no params)
+
+### 6.2 Field Corrections Applied
+- [x] Changed `individual_hierarchy_field` → `individual_hierarchy_salesforce`
+- [x] Changed `manager_level_1_id` → `line_manager_id`
+- [x] Changed UCO stage values from long form to short form (U1, U2, etc.)
+- [x] Changed `competitor_status` → `competitors` (competitor_status is empty)
+- [x] Changed LEFT JOIN to INNER JOIN in UCO queries (reduces result size)
+
+### 6.3 Validation Tests
+- [x] Create `sql/tests/validate_asq_queries.sql` (12 tests)
+- [x] Run tests against logfood workspace
+- [x] All tests passing
+
+### 6.4 Documentation
+- [x] Copy implementation plan to `docs/ssa-ops-asq-queries-plan.md`
+- [x] Create `sql/logfood/README.md` with query usage guide
+- [x] Update `docs/data-dictionary.md` with logfood query references
+
 ## Remaining Work
 
 - [ ] Update docs/architecture.md with enhanced data flow diagram
-- [ ] Run end-to-end validation with actual data
 - [ ] Deploy to dev and test metric views
-- [ ] Document any lessons learned
+
+## Done (ASQ Integration)
+
+- [x] Copy 7 ASQ queries from tickets workspace
+- [x] Fix field names to match GTM data model
+- [x] Validate all queries against logfood data
+- [x] Create sql/logfood/README.md
+- [x] Create sql/tests/validate_asq_queries.sql (12 tests)
+- [x] Update docs/data-dictionary.md with query references
+- [x] Update tasks/lessons.md with corrections
 
 ## Review Notes
 

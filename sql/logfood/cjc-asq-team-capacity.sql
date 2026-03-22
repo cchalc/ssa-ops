@@ -10,8 +10,8 @@
 
 WITH team_members AS (
   SELECT DISTINCT user_id, user_name
-  FROM main.gtm_silver.individual_hierarchy_field
-  WHERE manager_level_1_id = '{{ manager_id }}'
+  FROM main.gtm_silver.individual_hierarchy_salesforce
+  WHERE line_manager_id = '{{ manager_id }}'
 ),
 asq_workload AS (
   SELECT

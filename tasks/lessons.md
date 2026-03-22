@@ -81,6 +81,64 @@ Patterns and rules to prevent repeated mistakes.
 - Include data quality checks: duplicates, NULL rates, date sanity
 - Test both positive cases and expected rates (e.g., win rate 30-90%)
 
+## ASQ Queries (cjc- prefix)
+
+### Query Size Considerations
+- LEFT JOINs with UCOs can return huge result sets (exceeds inline byte limit)
+- Use INNER JOIN when only showing matched records
+- Add LIMIT for exploratory queries
+
+### Field Names to Remember
+- `competitor_status` is EMPTY - use `competitors` field instead
+- UCO stages are short form: U1, U2, U3, U4, U5, U6, Lost, Disqualified
+- NOT long form like 'U1 - Identified', 'U2 - Qualifying'
+
+### Query Parameters
+- `{{ region }}` - must be quoted: `'{{ region }}'`
+- `{{ manager_id }}` - Salesforce User ID (18 chars), also quoted
+
+### UCO DBU Field
+- **Monthly DBU**: `monthly_total_dollar_dbus` (NOT `total_monthly_dbu_dollars`)
+- May contain empty strings - use `TRY_CAST(field AS DOUBLE)` for numeric operations
+
+---
+
+## Individual Hierarchy (Additional Notes)
+
+### GTM Hierarchy is AE-focused
+- `individual_hierarchy_salesforce` only contains AE/sales roles
+- **SSA managers are NOT in this table**
+- Cannot find SSA direct reports via `line_manager_id` queries
+- SSA team structure must be configured locally (see `management/README.md`)
+
+### Hierarchy Table Column Names
+- `user_id` (NOT `individual_id`)
+- `user_name` (NOT `individual_name`)
+- `Title` (NOT `individual_role`)
+
+---
+
+## Direct Reports Configuration
+
+CJC's SSA direct reports are configured in `management/README.md`:
+
+| Name | Salesforce User ID |
+|------|-------------------|
+| Volodymyr Vragov | `005Vp000002lC2zIAE` |
+| Allan Cao | `0058Y00000CPeiKQAT` |
+| Harsha Pasala | `0058Y00000CP6yKQAT` |
+| Réda Khouani | `0053f000000Wi00AAC` |
+| Scott McKean | `005Vp0000016p45IAA` |
+| Mathieu Pelletier | `0058Y00000CPn0bQAD` |
+
+---
+
+## Databricks SDK
+
+### Statement Execution
+- `wait_timeout` must be between 5-50 seconds (or 0 to disable)
+- Use `wait_timeout="50s"` not `wait_timeout="60s"`
+
 ---
 
 _Add new lessons as corrections occur._
