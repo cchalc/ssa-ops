@@ -34,8 +34,9 @@ uco_data AS (
     uco.usecase_name,
     uco.stage,
     uco.estimated_monthly_dollar_dbus,
-    uco.competitor_status,
+    uco.competitors,
     uco.primary_competitor,
+    uco.competitor_category,
     uco.target_onboarding_month,
     uco.type AS uco_type
   FROM main.gtm_silver.use_case_detail uco
@@ -57,17 +58,19 @@ SELECT
   u.usecase_name AS uco_name,
   u.stage AS uco_stage,
   u.estimated_monthly_dollar_dbus AS monthly_dbu,
-  u.competitor_status,
+  u.competitors,
   u.primary_competitor,
+  u.competitor_category,
   u.uco_type,
   u.target_onboarding_month,
 
   -- Stage milestone classification
   CASE
-    WHEN u.stage IN ('U4 - Confirming', 'U5 - Onboarding') THEN 'NEAR_WIN'
-    WHEN u.stage = 'U6 - Live' THEN 'LIVE'
-    WHEN u.stage = 'U3 - Scoping' THEN 'SCOPING'
-    WHEN u.stage IN ('U1 - Identified', 'U2 - Qualifying') THEN 'EARLY'
+    WHEN u.stage IN ('U4', 'U5') THEN 'NEAR_WIN'
+    WHEN u.stage = 'U6' THEN 'LIVE'
+    WHEN u.stage = 'U3' THEN 'SCOPING'
+    WHEN u.stage IN ('U1', 'U2') THEN 'EARLY'
+    WHEN u.stage IN ('Lost', 'Disqualified') THEN 'CLOSED'
     ELSE 'UNKNOWN'
   END AS uco_milestone,
 
@@ -77,7 +80,7 @@ SELECT
   CONCAT('https://databricks.lightning.force.com/', u.usecase_id) AS uco_link
 
 FROM region_asqs a
-LEFT JOIN uco_data u ON a.account_id = u.account_id
+INNER JOIN uco_data u ON a.account_id = u.account_id
 ORDER BY
   a.status,
   u.estimated_monthly_dollar_dbus DESC NULLS LAST,

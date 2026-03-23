@@ -379,6 +379,47 @@ An account is "priority" if ANY of these are true:
 
 ---
 
+## ASQ Logfood Queries
+
+Parameterized SQL queries for ASQ operations analysis. Located in `sql/logfood/`.
+
+### Query Summary
+
+| Query | Parameters | Purpose |
+|-------|------------|---------|
+| `cjc-asq-region-summary` | None | Overview of ASQs by region |
+| `cjc-asq-evaluation` | `{{ region }}` | Full evaluation with hygiene/urgency |
+| `cjc-asq-by-manager` | `{{ manager_id }}` | ASQs for manager's direct reports |
+| `cjc-asq-hygiene-summary` | `{{ region }}` | Hygiene violations by SSA |
+| `cjc-asq-team-capacity` | `{{ manager_id }}` | Team workload distribution |
+| `cjc-asq-with-ucos` | `{{ region }}` | ASQs linked to UCOs |
+| `cjc-uco-competitive` | `{{ region }}` | Competitive analysis |
+
+### 5-Rule Hygiene Framework
+
+| Rule | Trigger | Severity |
+|------|---------|----------|
+| `RULE1_MISSING_NOTES` | Assigned >7 days, no status notes | High |
+| `RULE3_STALE` | Open 30-90 days + past/no due date | High |
+| `RULE4_EXPIRED` | Due date expired >7 days ago | Critical |
+| `RULE5_EXCESSIVE` | Open >90 days | Critical |
+| `COMPLIANT` | No violations | Good |
+
+### Urgency Classification
+
+| Level | Condition |
+|-------|-----------|
+| `CRITICAL` | >14 days overdue |
+| `HIGH` | 7-14 days overdue |
+| `MEDIUM` | 1-7 days overdue OR stale notes |
+| `NORMAL` | On track |
+
+### Usage
+
+See [sql/logfood/README.md](../sql/logfood/README.md) for detailed usage instructions.
+
+---
+
 ## Charter Metrics Reference
 
 See [charter-metrics.md](./charter-metrics.md) for full charter metric implementation details.
