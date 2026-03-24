@@ -9,6 +9,40 @@
 CREATE SCHEMA IF NOT EXISTS cjc_aws_workspace_catalog.ssa_ops_dev;
 
 -- ============================================================================
+-- SOURCE TABLE REPLICATION (for Charter Metric Views on fevm-cjc)
+-- ============================================================================
+-- These tables are required for metric views to work on fevm-cjc
+-- Replicates latest snapshot from GTM Silver/Gold tables
+
+-- ASQ Detail (source for all 5 charter metrics)
+CREATE OR REPLACE TABLE cjc_aws_workspace_catalog.ssa_ops_dev.approval_request_detail AS
+SELECT *, current_timestamp() as synced_at
+FROM main.gtm_silver.approval_request_detail
+WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM main.gtm_silver.approval_request_detail);
+
+-- UCO Detail (source for time-to-adopt, product impact, risk reduction)
+CREATE OR REPLACE TABLE cjc_aws_workspace_catalog.ssa_ops_dev.use_case_detail AS
+SELECT *, current_timestamp() as synced_at
+FROM main.gtm_silver.use_case_detail
+WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM main.gtm_silver.use_case_detail);
+
+-- Hierarchy (source for manager rollups in all metrics)
+CREATE OR REPLACE TABLE cjc_aws_workspace_catalog.ssa_ops_dev.individual_hierarchy_salesforce AS
+SELECT *, current_timestamp() as synced_at
+FROM main.gtm_silver.individual_hierarchy_salesforce;
+
+-- Account OBT (source for product consumption in product impact)
+CREATE OR REPLACE TABLE cjc_aws_workspace_catalog.ssa_ops_dev.account_obt AS
+SELECT *, current_timestamp() as synced_at
+FROM main.gtm_gold.account_obt
+WHERE fiscal_year_quarter = "FY'26 Q4";
+
+-- UCO Curated (source for ARR in risk reduction)
+CREATE OR REPLACE TABLE cjc_aws_workspace_catalog.ssa_ops_dev.core_usecase_curated AS
+SELECT *, current_timestamp() as synced_at
+FROM main.gtm_gold.core_usecase_curated;
+
+-- ============================================================================
 -- SYNC: Team Summary
 -- ============================================================================
 CREATE OR REPLACE TABLE cjc_aws_workspace_catalog.ssa_ops_dev.team_summary AS

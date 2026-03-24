@@ -6,15 +6,19 @@ This document maps SSA charter metrics to their implementation in ssa-ops.
 
 | # | Metric | Status | Implementation | Metric View |
 |---|--------|--------|----------------|-------------|
-| 1 | ARR Influenced | ✅ Implemented | Production UCOs (U5/U6) with ARR | `mv_pipeline_impact` |
-| 2 | Competitive Win Rate | ✅ Implemented | Win/loss on SSA-engaged UCOs | `mv_competitive_analysis` |
-| 3 | Time-to-Production | ✅ Implemented | Days in stage, milestone rates | `mv_uco_velocity` |
-| 4 | Time-to-Adopt | ❌ External data | Requires product usage correlation | - |
-| 5 | Asset Reuse Rate | ❌ Salesforce changes | Requires schema changes | - |
-| 6 | ASQ Deflection Rate | ❌ Unmeasurable | No baseline available | - |
-| 7 | Product Impact | ❌ External data | Engineering system integration | - |
-| 8 | Customer Risk Reduction | ❌ External data | Churn score correlation | - |
-| 9 | Focus & Discipline (80% L400+) | ✅ Implemented | Effort on L400+/BU+1 accounts | `mv_focus_discipline` |
+| 1 | ARR Influenced | ✅ Deployed | Production UCOs (U5/U6) with ARR | `mv_pipeline_impact` |
+| 2 | Competitive Win Rate | ✅ Deployed | Win/loss on SSA-engaged UCOs | `mv_competitive_analysis` |
+| 3 | Time-to-Production | ✅ Deployed | Days in stage, milestone rates | `mv_uco_velocity` |
+| 4 | Time-to-Adopt | ✅ Deployed | U3→U4 stage transition time | `mv_time_to_adopt` |
+| 5 | Asset Reuse Rate | ✅ Deployed | Pattern application across accounts | `mv_asset_reuse` |
+| 6 | ASQ Deflection Rate | ⚠️ Proxy | Self-service health (engagement gaps) | `mv_self_service_health` |
+| 7 | Product Impact | ✅ Deployed | UCO product + adoption flags + DBUs | `mv_product_impact` |
+| 8 | Customer Risk Reduction | ✅ Deployed | Competitive wins + mitigation ASQs | `mv_customer_risk_reduction` |
+| 9 | Focus & Discipline (80% L400+) | ✅ Deployed | Effort on L400+/BU+1 accounts | `mv_focus_discipline` |
+
+**Legend:** ✅ Deployed & Validated | ⚠️ Proxy Metric
+
+**Deployment Location:** `home_christopher_chalcraft.cjc_views` on logfood workspace
 
 ---
 
@@ -115,6 +119,169 @@ GROUP BY ALL;
 
 ---
 
+## Metric 4: Time-to-Adopt
+
+**Definition:** Speed of new capability adoption - how quickly SSA-engaged UCOs move from Evaluating (U3) to Tech Win (U4).
+
+**Implementation:**
+- Source: `mv_time_to_adopt`
+- Key Measures:
+  - `Avg Days to Adopt` - Average U3→U4 transition time
+  - `Median Days to Adopt` - Median U3→U4 time (less skewed by outliers)
+  - `Fast Adoption Rate` - Percentage of adoptions under 14 days
+  - `Adoption Rate` - Percentage of UCOs reaching U4
+
+**UCO Adoption Path:**
+```
+U3 (Evaluating)  → U4 (Tech Win)  → U5 (Production) → U6 (Go Live)
+     ↑                  ↑
+ SSA Engaged      TIME-TO-ADOPT
+```
+
+**Sample Query:**
+```sql
+SELECT
+  `Owner`,
+  MEASURE(`Total UCOs`),
+  MEASURE(`Adopted UCOs`),
+  MEASURE(`Avg Days to Adopt`),
+  MEASURE(`Fast Adoption Rate`)
+FROM mv_time_to_adopt
+WHERE `Manager L1` = 'Christopher Chalcraft'
+  AND `Fiscal Year` = 2026
+GROUP BY ALL
+ORDER BY `Avg Days to Adopt`;
+```
+
+---
+
+## Metric 5: Asset Reuse Rate
+
+**Definition:** How often SSA patterns/approaches get reused across multiple accounts.
+
+**Implementation:**
+- Source: `mv_asset_reuse`
+- Key Measures:
+  - `Pattern Reuse Rate` - Patterns applied to 2+ accounts / Total patterns
+  - `Reused Patterns` - Count of patterns used on multiple accounts
+  - `Avg Accounts per Pattern` - Average reach of each pattern
+
+**Pattern Definition:** SSA + Technical Specialization combination
+
+**Sample Query:**
+```sql
+SELECT
+  `Owner`,
+  MEASURE(`Total Patterns`),
+  MEASURE(`Reused Patterns`),
+  MEASURE(`Pattern Reuse Rate`),
+  MEASURE(`Max Pattern Reach`)
+FROM mv_asset_reuse
+WHERE `Manager L1` = 'Christopher Chalcraft'
+GROUP BY ALL
+ORDER BY `Pattern Reuse Rate` DESC;
+```
+
+---
+
+## Metric 6: ASQ Deflection Rate (Proxy)
+
+**Definition:** Since "potential ASQs" cannot be measured, this tracks self-service health as a proxy for deflection.
+
+**Implementation:**
+- Source: `mv_self_service_health`
+- Key Measures:
+  - `Self-Service Rate` - (One-Time + Self-Sufficient accounts) / Total
+  - `One-Time Accounts` - Accounts with single ASQ (enabled after one engagement)
+  - `Avg Days Between ASQs` - Higher = more self-sufficient
+
+**Self-Service Tiers:**
+```
+One-Time (Enabled)       - Single ASQ, then self-sufficient
+Highly Self-Sufficient   - >180 days between ASQs
+Self-Sufficient          - 90-180 days between ASQs
+Regular Engagement       - 30-90 days between ASQs
+Frequent Dependency      - <30 days between ASQs
+```
+
+**Sample Query:**
+```sql
+SELECT
+  `Manager L1`,
+  MEASURE(`Total Accounts`),
+  MEASURE(`One-Time Accounts`),
+  MEASURE(`Self-Sufficient Accounts`),
+  MEASURE(`Self-Service Rate`)
+FROM mv_self_service_health
+WHERE `Business Unit` = 'AMER Enterprise & Emerging'
+GROUP BY ALL;
+```
+
+---
+
+## Metric 7: Product Impact
+
+**Definition:** Influence on compensation-tied product adoption (Lakeflow, Serverless, Model Serving, Unity Catalog).
+
+**Implementation:**
+- Source: `mv_product_impact`
+- Key Measures:
+  - `Lakeflow Influenced Accounts` - Accounts with Lakeflow adoption
+  - `Serverless Influenced Accounts` - Accounts with Serverless adoption
+  - `Model Serving Influenced Accounts` - Accounts with Model Serving
+  - `Total Product DBUs` - DBU consumption in target products
+
+**Sample Query:**
+```sql
+SELECT
+  `Owner`,
+  MEASURE(`Engaged Accounts`),
+  MEASURE(`Lakeflow Adoption Rate`),
+  MEASURE(`Serverless Adoption Rate`),
+  MEASURE(`Model Serving Adoption Rate`),
+  MEASURE(`Total Product DBUs`)
+FROM mv_product_impact
+WHERE `Manager L1` = 'Christopher Chalcraft'
+GROUP BY ALL
+ORDER BY `Total Product DBUs` DESC;
+```
+
+---
+
+## Metric 8: Customer Risk Reduction
+
+**Definition:** Competitive displacement wins and risk mitigation from SSA engagements.
+
+**Implementation:**
+- Source: `mv_customer_risk_reduction`
+- Key Measures:
+  - `Competitive Win Rate` - Wins / (Wins + Losses) for competitive UCOs
+  - `Microsoft Displacement Wins` - Wins against Fabric/Synapse/Power BI
+  - `Risk Resolution Rate` - Completed risk ASQs / Total risk ASQs
+
+**Risk Contexts:**
+- Migration ASQs
+- Competitive/Displacement scenarios
+- Churn risk or mitigation-tagged ASQs
+- Active compete UCOs
+
+**Sample Query:**
+```sql
+SELECT
+  `Owner`,
+  MEASURE(`Competitive UCOs`),
+  MEASURE(`Competitive Wins`),
+  MEASURE(`Competitive Win Rate`),
+  MEASURE(`Microsoft Displacement Wins`),
+  MEASURE(`Snowflake Displacement Wins`)
+FROM mv_customer_risk_reduction
+WHERE `Manager L1` = 'Christopher Chalcraft'
+GROUP BY ALL
+ORDER BY `Competitive Wins` DESC;
+```
+
+---
+
 ## Metric 9: Focus & Discipline (80% L400+)
 
 **Definition:** 80% of SSA effort should be on L400+, L500, or BU+1 prioritized accounts.
@@ -189,6 +356,11 @@ GROUP BY ALL;
 | `mv_focus_discipline` | 80% L400+ effort | #9 Focus & Discipline |
 | `mv_uco_velocity` | Time-to-production | #3 Time-to-Production |
 | `mv_competitive_analysis` | Win/loss analysis | #2 Competitive Win Rate |
+| `mv_time_to_adopt` | U3→U4 stage transition time | #4 Time-to-Adopt |
+| `mv_asset_reuse` | Pattern application tracking | #5 Asset Reuse Rate |
+| `mv_self_service_health` | Self-service proxy | #6 ASQ Deflection (proxy) |
+| `mv_product_impact` | Product adoption influence | #7 Product Impact |
+| `mv_customer_risk_reduction` | Competitive wins & risk | #8 Customer Risk Reduction |
 
 ### Analysis
 | View | Purpose | Charter Metrics |

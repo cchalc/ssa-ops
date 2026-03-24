@@ -238,6 +238,34 @@ query-mv-all name:
 # or using the Databricks MCP tool. The `databricks sql execute` command
 # is not available in all CLI versions.
 
+# Deploy charter metrics 4-8 to logfood (automated via Python script)
+deploy-charter-metrics:
+    @echo "╔════════════════════════════════════════════════════════════════════╗"
+    @echo "║            DEPLOYING CHARTER METRICS TO LOGFOOD                    ║"
+    @echo "╚════════════════════════════════════════════════════════════════════╝"
+    python scripts/deploy_metric_view.py
+    @echo ""
+    @echo "METRIC VIEWS CREATED in home_christopher_chalcraft.cjc_views:"
+    @echo "  - mv_time_to_adopt         (Charter #4)"
+    @echo "  - mv_asset_reuse           (Charter #5)"
+    @echo "  - mv_self_service_health   (Charter #6 - proxy)"
+    @echo "  - mv_product_impact        (Charter #7)"
+    @echo "  - mv_customer_risk_reduction (Charter #8)"
+    @echo ""
+    @echo "Query example:"
+    @echo "  SELECT \`Business Unit\`, MEASURE(\`Total UCOs\`), MEASURE(\`Adopted UCOs\`)"
+    @echo "  FROM mv_time_to_adopt WHERE \`Region\` = 'CAN' GROUP BY ALL"
+
+# Test charter metrics 4-8 (automated validation)
+test-charter-metrics:
+    @echo "Testing Charter Metrics 4-8..."
+    python scripts/test_charter_metrics.py
+
+# Deploy and test charter metrics in one command
+charter-metrics: deploy-charter-metrics test-charter-metrics
+    @echo ""
+    @echo "✓ Charter metrics deployed and validated"
+
 # Run all metric view validation tests
 test-metric-views:
     @echo "Running metric view validation tests..."

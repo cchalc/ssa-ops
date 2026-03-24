@@ -293,12 +293,15 @@ CHARTER METRICS COVERAGE
 │ 1  │ ARR Influenced           │ ✅ Done   │ mv_pipeline_impact            │
 │ 2  │ Competitive Win Rate     │ ✅ Done   │ mv_competitive_analysis       │
 │ 3  │ Time-to-Production       │ ✅ Done   │ mv_uco_velocity               │
-│ 4  │ Time-to-Adopt            │ ❌ Blocked│ Needs product usage data      │
-│ 5  │ Asset Reuse Rate         │ ❌ Blocked│ Needs Salesforce schema       │
-│ 6  │ ASQ Deflection Rate      │ ❌ Blocked│ No baseline available         │
-│ 7  │ Product Impact           │ ❌ Blocked│ Needs engineering systems     │
-│ 8  │ Customer Risk Reduction  │ ❌ Blocked│ Needs churn score data        │
+│ 4  │ Time-to-Adopt            │ ✅ Done   │ mv_time_to_adopt (U3→U4 days) │
+│ 5  │ Asset Reuse Rate         │ ✅ Done   │ mv_asset_reuse (patterns)     │
+│ 6  │ ASQ Deflection Rate      │ ⚠️ Proxy  │ mv_self_service_health        │
+│ 7  │ Product Impact           │ ✅ Done   │ mv_product_impact             │
+│ 8  │ Customer Risk Reduction  │ ✅ Done   │ mv_customer_risk_reduction    │
 │ 9  │ Focus & Discipline       │ ✅ Done   │ mv_focus_discipline           │
 └────────────────────────────────────────────────────────────────────────────┘
 
+Legend: ✅ Done | ⚠️ Proxy (approximation)
+
+See docs/RESEARCH-blocked-metrics.md for unblocking research and implementation details.
 See docs/charter-metrics.md for detailed implementation documentation.
